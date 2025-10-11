@@ -1390,13 +1390,12 @@ class AppState extends ChangeNotifier {
 
   Future<void> _playRestFinishedSound() async {
     try {
-      // You can use a local asset or system sound — here's a simple beep:
-      await _audioPlayer.play(AssetSource('sounds/rest_done.mp3'));
+      await _audioPlayer.setSource(AssetSource('sounds/rest_done.mp3'));
+      await _audioPlayer.resume();
     } catch (e) {
       debugPrint('Error playing sound: $e');
     }
   }
-
 
   /// Ends workout, saves session, updates PRs, returns the saved session.
   Future<WorkoutSession?> endActiveWorkoutAndSave() async {
