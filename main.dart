@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:math' as math;
 
 void main() => runApp(const MyApp());
 
@@ -9,31 +10,716 @@ enum Gender { female, male, other }
 
 /// Built-in exercise catalog (single source of truth)
 List<Exercise> builtInExercises() => [
-  // Chest
+  // Chest (existing)
   Exercise(name: 'Bench Press', muscle: 'Chest', description: 'Barbell bench press targeting chest, triceps and anterior deltoids.'),
-  Exercise(name: 'Incline Dumbbell Press', muscle: 'Chest', description: 'Dumbbells on incline bench; emphasize upper chest.'),
+  Exercise(name: 'Incline Bench Press', muscle: 'Chest', description: 'Barbell bench press targeting chest, triceps and anterior deltoids.'),
+  Exercise(name: 'Decline Bench Press', muscle: 'Chest', description: 'Barbell bench press targeting chest, triceps and anterior deltoids.'),
   Exercise(name: 'Push-up', muscle: 'Chest', description: 'Bodyweight push; hands shoulder-width, neutral spine.'),
-  // Back
+
+  // Back (existing)
   Exercise(name: 'Deadlift', muscle: 'Back', description: 'Posterior chain compound: hinge with neutral back.'),
   Exercise(name: 'Pull-up', muscle: 'Back', description: 'Overhand grip; chest to bar; full hang to chin over bar.'),
+  Exercise(name: 'Chin-up', muscle: 'Back', description: 'Underhand grip; chest to bar; full hang to chin over bar.'),
   Exercise(name: 'Barbell Row', muscle: 'Back', description: 'Hinge to ~45°, row bar to lower chest / upper abs.'),
-  // Legs
+
+  // Legs (existing)
   Exercise(name: 'Back Squat', muscle: 'Legs', description: 'Bar on traps; squat below parallel with stable knees.'),
   Exercise(name: 'Front Squat', muscle: 'Legs', description: 'Bar on front rack; more quad emphasis.'),
   Exercise(name: 'Romanian Deadlift', muscle: 'Legs', description: 'Hip hinge; hamstrings stretch; slight knee bend.'),
-  // Shoulders
+
+  // Shoulders (existing)
   Exercise(name: 'Overhead Press', muscle: 'Shoulders', description: 'Press bar to overhead; brace core, glutes.'),
   Exercise(name: 'Lateral Raise', muscle: 'Shoulders', description: 'Dumbbells out to sides to shoulder height.'),
-  // Arms
+
+  // Arms (existing)
   Exercise(name: 'Dumbbell Curl', muscle: 'Arms', description: 'Elbows pinned; curl without swinging.'),
   Exercise(name: 'Triceps Pushdown', muscle: 'Arms', description: 'Cable pushdown; elbows tucked, full extension.'),
-  // Core
+
+  // Core (existing)
   Exercise(name: 'Plank', muscle: 'Core', description: 'Hold a straight line from head to heels; brace abs and glutes.'),
   Exercise(name: 'Hanging Leg Raise', muscle: 'Core', description: 'Raise legs to 90°; avoid swinging.'),
-  // Full Body / Cardio
+
+  // Full Body / Cardio (existing)
   Exercise(name: 'Kettlebell Swing', muscle: 'Full Body', description: 'Hip drive; swing bell to chest height.'),
   Exercise(name: 'Burpee', muscle: 'Cardio', description: 'Squat to plank, push-up, return and jump.'),
+
+  // --------- Chest (add ~25) ----------
+  Exercise(name: 'Dumbbell Bench Press', muscle: 'Chest', description: 'Neutral grip option; greater range of motion.'),
+  Exercise(name: 'Incline Dumbbell Press', muscle: 'Chest', description: 'Upper chest focus; 15–30° bench angle.'),
+  Exercise(name: 'Decline Dumbbell Press', muscle: 'Chest', description: 'Lower chest emphasis; control descent.'),
+  Exercise(name: 'Close-Grip Bench Press', muscle: 'Chest', description: 'Narrow grip; triceps and inner chest focus.'),
+  Exercise(name: 'Floor Press', muscle: 'Chest', description: 'Reduced range; lockout and triceps emphasis.'),
+  Exercise(name: 'Machine Chest Press', muscle: 'Chest', description: 'Stable path; push handles to full extension.'),
+  Exercise(name: 'Cable Chest Press', muscle: 'Chest', description: 'Standing press; constant cable tension.'),
+  Exercise(name: 'Push-up (Diamond)', muscle: 'Chest', description: 'Hands together; triceps and inner chest bias.'),
+  Exercise(name: 'Push-up (Wide)', muscle: 'Chest', description: 'Hands wider than shoulders; chest emphasis.'),
+  Exercise(name: 'Archer Push-up', muscle: 'Chest', description: 'Side-to-side loading; unilateral challenge.'),
+  Exercise(name: 'Weighted Push-up', muscle: 'Chest', description: 'External load; maintain rigid plank line.'),
+  Exercise(name: 'Deficit Push-up', muscle: 'Chest', description: 'Hands elevated; increase depth and stretch.'),
+  Exercise(name: 'Ring Push-up', muscle: 'Chest', description: 'Instability; scapular control; neutral wrists.'),
+  Exercise(name: 'Dumbbell Flye', muscle: 'Chest', description: 'Arc motion; soft elbows; stretch and squeeze.'),
+  Exercise(name: 'Incline Dumbbell Flye', muscle: 'Chest', description: 'Upper chest stretch; slow eccentric.'),
+  Exercise(name: 'Cable Flye (High to Low)', muscle: 'Chest', description: 'Lower chest; cross hands slightly.'),
+  Exercise(name: 'Cable Flye (Low to High)', muscle: 'Chest', description: 'Upper chest; finish at eye level.'),
+  Exercise(name: 'Pec Deck', muscle: 'Chest', description: 'Machine flye; elbows slightly bent; squeeze peak.'),
+  Exercise(name: 'Svend Press', muscle: 'Chest', description: 'Plates squeezed together; inner chest bias.'),
+  Exercise(name: 'Guillotine Press', muscle: 'Chest', description: 'Bar to neck; very light; high chest activation.'),
+  Exercise(name: 'Landmine Press (Chest Focus)', muscle: 'Chest', description: 'Angled press; slight arc toward midline.'),
+  Exercise(name: 'Single-Arm Dumbbell Press', muscle: 'Chest', description: 'Anti-rotation core; press one side.'),
+  Exercise(name: 'Iso-Hold Dumbbell Press', muscle: 'Chest', description: 'Hold one side; press the other.'),
+  Exercise(name: 'Spoto Press', muscle: 'Chest', description: 'Pause 2cm above chest; control tension.'),
+  Exercise(name: 'Smith Machine Bench Press', muscle: 'Chest', description: 'Fixed path; safer near failure.'),
+
+  // --------- Back (add ~30) ----------
+  Exercise(name: 'Pendlay Row', muscle: 'Back', description: 'From floor each rep; strict torso.'),
+  Exercise(name: 'T-Bar Row', muscle: 'Back', description: 'Chest supported or hinged; mid-back focus.'),
+  Exercise(name: 'Seal Row', muscle: 'Back', description: 'Prone on bench; strict lat/upper-back pull.'),
+  Exercise(name: 'Dumbbell Row', muscle: 'Back', description: 'Hinge; pull to hip; avoid shrugging.'),
+  Exercise(name: 'Chest-Supported Row', muscle: 'Back', description: 'Bench support; minimize lower back load.'),
+  Exercise(name: 'Cable Row (Seated)', muscle: 'Back', description: 'Neutral spine; pull to navel/sternum.'),
+  Exercise(name: 'Lat Pulldown (Wide)', muscle: 'Back', description: 'Elbows down and back; avoid swinging.'),
+  Exercise(name: 'Lat Pulldown (Close)', muscle: 'Back', description: 'Neutral/close grip; lat emphasis.'),
+  Exercise(name: 'Straight-Arm Pulldown', muscle: 'Back', description: 'Locked elbows; sweep bar to thighs.'),
+  Exercise(name: 'Face Pull', muscle: 'Back', description: 'Rope to forehead; external rotation focus.'),
+  Exercise(name: 'Inverted Row', muscle: 'Back', description: 'Bodyweight row; heels on floor/bench.'),
+  Exercise(name: 'Ring Row', muscle: 'Back', description: 'Instability; keep ribs tucked.'),
+  Exercise(name: 'Kroc Row', muscle: 'Back', description: 'High-rep heavy DB row; straps optional.'),
+  Exercise(name: 'Meadows Row', muscle: 'Back', description: 'Landmine one-arm row; hip hinge.'),
+  Exercise(name: 'Landmine Row', muscle: 'Back', description: 'Chest supported or hinged; neutral grip.'),
+  Exercise(name: 'Good Morning', muscle: 'Back', description: 'Bar on back; hinge; hamstrings and erectors.'),
+  Exercise(name: 'Back Extension', muscle: 'Back', description: 'Hip hinge on GHD; glute/ham emphasis.'),
+  Exercise(name: 'Reverse Hyper', muscle: 'Back', description: 'Swing legs; traction lower back.'),
+  Exercise(name: 'Trap Bar Deadlift', muscle: 'Back', description: 'Neutral handles; quad and back blend.'),
+  Exercise(name: 'Snatch-Grip Deadlift', muscle: 'Back', description: 'Wide grip; upper-back loading.'),
+  Exercise(name: 'Rack Pull', muscle: 'Back', description: 'Partial deadlift; lockout strength.'),
+  Exercise(name: 'Deficit Deadlift', muscle: 'Back', description: 'Stand on plate; increased range of motion.'),
+  Exercise(name: 'Sumo Deadlift', muscle: 'Back', description: 'Wide stance; upright torso; hip drive.'),
+  Exercise(name: 'Jefferson Deadlift', muscle: 'Back', description: 'Straddle bar; anti-rotation pull.'),
+  Exercise(name: 'Zercher Squat (Back Focus)', muscle: 'Back', description: 'Elbows under bar; upper-back challenge.'),
+  Exercise(name: 'Farmer’s Carry', muscle: 'Back', description: 'Heavy carries; lats and traps engagement.'),
+  Exercise(name: 'Suitcase Carry', muscle: 'Back', description: 'One-sided carry; anti-lateral flexion.'),
+  Exercise(name: 'Yoke Carry', muscle: 'Back', description: 'Loaded frame carry; full back tension.'),
+  Exercise(name: 'Shrug (Barbell)', muscle: 'Back', description: 'Up-down only; hold peak briefly.'),
+  Exercise(name: 'Dumbbell Shrug', muscle: 'Back', description: 'Neutral grip; avoid rolling shoulders.'),
+
+  // --------- Legs (add ~35) ----------
+  Exercise(name: 'High-Bar Back Squat', muscle: 'Legs', description: 'Upright torso; quad bias.'),
+  Exercise(name: 'Low-Bar Back Squat', muscle: 'Legs', description: 'Hip hinge; posterior chain emphasis.'),
+  Exercise(name: 'Goblet Squat', muscle: 'Legs', description: 'DB/Kettlebell at chest; torso upright.'),
+  Exercise(name: 'Hack Squat (Machine)', muscle: 'Legs', description: 'Sled machine; deep knee flexion.'),
+  Exercise(name: 'Leg Press', muscle: 'Legs', description: 'Foot placement alters quad/ham emphasis.'),
+  Exercise(name: 'Walking Lunge', muscle: 'Legs', description: 'Long stride; knee track over toes.'),
+  Exercise(name: 'Reverse Lunge', muscle: 'Legs', description: 'Step back; hip and glute friendly.'),
+  Exercise(name: 'Forward Lunge', muscle: 'Legs', description: 'Step forward; control knee valgus.'),
+  Exercise(name: 'Bulgarian Split Squat', muscle: 'Legs', description: 'Rear foot elevated; deep stretch.'),
+  Exercise(name: 'Split Squat', muscle: 'Legs', description: 'Feet split; vertical torso; quad load.'),
+  Exercise(name: 'Pistol Squat', muscle: 'Legs', description: 'Single-leg squat; assist as needed.'),
+  Exercise(name: 'Box Squat', muscle: 'Legs', description: 'Sit back to box; pause and drive.'),
+  Exercise(name: 'Zercher Squat', muscle: 'Legs', description: 'Bar in elbows; upright and braced.'),
+  Exercise(name: 'Overhead Squat', muscle: 'Legs', description: 'Bar overhead; mobility and stability heavy.'),
+  Exercise(name: 'Sissy Squat', muscle: 'Legs', description: 'Knees forward; quad isolation.'),
+  Exercise(name: 'Leg Extension', muscle: 'Legs', description: 'Extend to full lock; control eccentric.'),
+  Exercise(name: 'Leg Curl (Seated)', muscle: 'Legs', description: 'Hamstring curl; hips pinned.'),
+  Exercise(name: 'Leg Curl (Lying)', muscle: 'Legs', description: 'Keep pelvis down; slow negative.'),
+  Exercise(name: 'Nordic Curl', muscle: 'Legs', description: 'Partner/anchor; slow eccentric hamstring.'),
+  Exercise(name: 'Glute Bridge', muscle: 'Legs', description: 'Hips up; posterior pelvic tilt.'),
+  Exercise(name: 'Hip Thrust', muscle: 'Legs', description: 'Bench-supported; lockout and squeeze.'),
+  Exercise(name: 'Cable Pull-Through', muscle: 'Legs', description: 'Hinge with rope; glute emphasis.'),
+  Exercise(name: 'Step-up', muscle: 'Legs', description: 'Drive through whole foot; control down.'),
+  Exercise(name: 'Box Step-down', muscle: 'Legs', description: 'Eccentric control; hip stability.'),
+  Exercise(name: 'Calf Raise (Standing)', muscle: 'Legs', description: 'Full stretch; full plantar flexion.'),
+  Exercise(name: 'Calf Raise (Seated)', muscle: 'Legs', description: 'Soleus focus; controlled tempo.'),
+  Exercise(name: 'Donkey Calf Raise', muscle: 'Legs', description: 'Hips hinged; deep calf stretch.'),
+  Exercise(name: 'Smith Machine Squat', muscle: 'Legs', description: 'Fixed track; high-rep quad sets.'),
+  Exercise(name: 'Front Foot Elevated Split Squat', muscle: 'Legs', description: 'More dorsiflexion; quad bias.'),
+  Exercise(name: 'Cossack Squat', muscle: 'Legs', description: 'Side lunge; adductor mobility.'),
+  Exercise(name: 'Jefferson Squat', muscle: 'Legs', description: 'Straddle barbell; neutral spine.'),
+  Exercise(name: 'Spanish Squat', muscle: 'Legs', description: 'Band behind knees; upright quads.'),
+  Exercise(name: 'Wall Sit', muscle: 'Legs', description: 'Isometric quads; 90° knee angle.'),
+  Exercise(name: 'Kettlebell Deadlift', muscle: 'Legs', description: 'Hip hinge patterning; neutral back.'),
+  Exercise(name: 'Single-Leg RDL', muscle: 'Legs', description: 'Balance; hip hinge; level hips.'),
+
+  // --------- Shoulders (add ~25) ----------
+  Exercise(name: 'Seated Dumbbell Press', muscle: 'Shoulders', description: 'Neutral or pronated grip; full lockout.'),
+  Exercise(name: 'Arnold Press', muscle: 'Shoulders', description: 'Rotate palms during press; delt sweep.'),
+  Exercise(name: 'Push Press', muscle: 'Shoulders', description: 'Dip-drive; power through sticking point.'),
+  Exercise(name: 'Z Press', muscle: 'Shoulders', description: 'Seated on floor; core demands high.'),
+  Exercise(name: 'Machine Shoulder Press', muscle: 'Shoulders', description: 'Fixed path; higher rep safety.'),
+  Exercise(name: 'Cable Lateral Raise', muscle: 'Shoulders', description: 'Constant tension; slight forward lean.'),
+  Exercise(name: 'Seated Lateral Raise', muscle: 'Shoulders', description: 'Strict reps; minimal body English.'),
+  Exercise(name: 'Leaning Lateral Raise', muscle: 'Shoulders', description: 'Increase bottom-range tension.'),
+  Exercise(name: 'Behind-the-Back Cable Raise', muscle: 'Shoulders', description: 'Cable behind hip; delt isolation.'),
+  Exercise(name: 'Front Raise (Plate)', muscle: 'Shoulders', description: 'Lift to eye level; control down.'),
+  Exercise(name: 'Front Raise (Dumbbell)', muscle: 'Shoulders', description: 'Alt or bilateral; avoid swinging.'),
+  Exercise(name: 'Rear Delt Flye (Dumbbell)', muscle: 'Shoulders', description: 'Hinge; pinkies high; scapula set.'),
+  Exercise(name: 'Rear Delt Flye (Cable)', muscle: 'Shoulders', description: 'Cross-cable; micro-bend elbows.'),
+  Exercise(name: 'Face Pull (High Anchor)', muscle: 'Shoulders', description: 'External rotation; scap retraction.'),
+  Exercise(name: 'Upright Row (EZ Bar)', muscle: 'Shoulders', description: 'Hands shoulder-width; elbows lead.'),
+  Exercise(name: 'Landmine Press', muscle: 'Shoulders', description: 'Angled path; scapular upward rotation.'),
+  Exercise(name: 'Dumbbell Y-Raise', muscle: 'Shoulders', description: 'Incline bench; lower trap bias.'),
+  Exercise(name: 'Cuban Press', muscle: 'Shoulders', description: 'High pull + external rotation press.'),
+  Exercise(name: 'Snatch-Grip High Pull', muscle: 'Shoulders', description: 'Powerful shrug; elbows high.'),
+  Exercise(name: 'Barbell Front Raise', muscle: 'Shoulders', description: 'Straight bar to shoulder height.'),
+  Exercise(name: 'Bradford Press', muscle: 'Shoulders', description: 'Front-to-back partial presses.'),
+  Exercise(name: 'Scaption Raise', muscle: 'Shoulders', description: 'Raise in scapular plane; thumbs up.'),
+  Exercise(name: 'Handstand Push-up', muscle: 'Shoulders', description: 'Wall-assisted; strict or kipping.'),
+  Exercise(name: 'Pike Push-up', muscle: 'Shoulders', description: 'Hips high; vertical pressing pattern.'),
+  Exercise(name: 'Smith Machine Shoulder Press', muscle: 'Shoulders', description: 'Guided bar; safer heavy sets.'),
+
+  // --------- Arms (add ~35) ----------
+  Exercise(name: 'Barbell Curl', muscle: 'Arms', description: 'Straight/EZ bar; strict torso.'),
+  Exercise(name: 'Hammer Curl', muscle: 'Arms', description: 'Neutral grip; brachialis focus.'),
+  Exercise(name: 'Incline Dumbbell Curl', muscle: 'Arms', description: 'Elbows back; long head stretch.'),
+  Exercise(name: 'Preacher Curl', muscle: 'Arms', description: 'Pad support; eliminate cheating.'),
+  Exercise(name: 'Concentration Curl', muscle: 'Arms', description: 'Elbow on thigh; peak squeeze.'),
+  Exercise(name: 'Cable Curl', muscle: 'Arms', description: 'Constant tension; full range.'),
+  Exercise(name: 'Bayesian Cable Curl', muscle: 'Arms', description: 'Cable behind body; long head bias.'),
+  Exercise(name: 'Reverse Curl', muscle: 'Arms', description: 'Pronated grip; brachioradialis work.'),
+  Exercise(name: 'Zottman Curl', muscle: 'Arms', description: 'Supinate up, pronate down.'),
+  Exercise(name: 'Spider Curl', muscle: 'Arms', description: 'Chest on bench; strict peak work.'),
+  Exercise(name: 'Cable Rope Curl', muscle: 'Arms', description: 'Flare at top; squeeze hard.'),
+  Exercise(name: 'One-Arm Cable Curl', muscle: 'Arms', description: 'Unilateral; match sides precisely.'),
+  Exercise(name: 'Drag Curl', muscle: 'Arms', description: 'Bar path up torso; elbows back.'),
+  Exercise(name: 'EZ-Bar Curl', muscle: 'Arms', description: 'Wrist-friendly; varying hand widths.'),
+  Exercise(name: 'Triceps Dips', muscle: 'Arms', description: 'Parallel bars; slight forward lean.'),
+  Exercise(name: 'Bench Dips', muscle: 'Arms', description: 'Feet elevated to increase load.'),
+  Exercise(name: 'Skullcrusher (EZ Bar)', muscle: 'Arms', description: 'Lower behind head; long head stretch.'),
+  Exercise(name: 'Overhead Triceps Extension (DB)', muscle: 'Arms', description: 'Elbows narrow; full extension.'),
+  Exercise(name: 'Cable Overhead Extension', muscle: 'Arms', description: 'Back to stack; constant tension.'),
+  Exercise(name: 'Rope Pushdown', muscle: 'Arms', description: 'Flare rope at bottom; lockout.'),
+  Exercise(name: 'Straight-Bar Pushdown', muscle: 'Arms', description: 'Tucked elbows; avoid shoulders.'),
+  Exercise(name: 'Single-Arm Pushdown', muscle: 'Arms', description: 'Unilateral; tidy asymmetries.'),
+  Exercise(name: 'JM Press', muscle: 'Arms', description: 'Hybrid close-grip + skullcrusher.'),
+  Exercise(name: 'Close-Grip Push-up', muscle: 'Arms', description: 'Triceps bias; elbows tight.'),
+  Exercise(name: 'Reverse-Grip Pushdown', muscle: 'Arms', description: 'Supinated grip; medial head hit.'),
+  Exercise(name: 'Cable Kickback', muscle: 'Arms', description: 'Elbow high; extend fully.'),
+  Exercise(name: 'Dumbbell Kickback', muscle: 'Arms', description: 'Light weight; strict lockout.'),
+  Exercise(name: 'Kettlebell Hammer Curl', muscle: 'Arms', description: 'Offset load; forearm challenge.'),
+  Exercise(name: 'Cross-Body Hammer Curl', muscle: 'Arms', description: 'To opposite shoulder; brachialis.'),
+  Exercise(name: 'Reverse-Grip Curl (EZ)', muscle: 'Arms', description: 'Wrist-friendly pronated curl.'),
+  Exercise(name: 'Cable Reverse Curl', muscle: 'Arms', description: 'Constant tension; forearms burn.'),
+  Exercise(name: 'Overhead Band Triceps Ext', muscle: 'Arms', description: 'Band; long head emphasis.'),
+  Exercise(name: 'Band Pushdown', muscle: 'Arms', description: 'Portable triceps finisher.'),
+  Exercise(name: 'Forearm Wrist Curl', muscle: 'Arms', description: 'Flexors; full squeeze.'),
+  Exercise(name: 'Reverse Wrist Curl', muscle: 'Arms', description: 'Extensors; slow tempo.'),
+
+  // --------- Core (add ~25) ----------
+  Exercise(name: 'Crunch', muscle: 'Core', description: 'Short ROM; ribcage to pelvis.'),
+  Exercise(name: 'Sit-up', muscle: 'Core', description: 'Full trunk flexion; feet anchored optional.'),
+  Exercise(name: 'Cable Crunch', muscle: 'Core', description: 'Kneeling; pull rope down; curl spine.'),
+  Exercise(name: 'Decline Sit-up', muscle: 'Core', description: 'Greater ROM; control descent.'),
+  Exercise(name: 'Reverse Crunch', muscle: 'Core', description: 'Posterior pelvic tilt; low abs.'),
+  Exercise(name: 'Hollow Body Hold', muscle: 'Core', description: 'Lumbar pressed down; ribs tucked.'),
+  Exercise(name: 'Dead Bug', muscle: 'Core', description: 'Opposite arm/leg; neutral spine.'),
+  Exercise(name: 'Pallof Press', muscle: 'Core', description: 'Anti-rotation; cable/band press-out.'),
+  Exercise(name: 'Side Plank', muscle: 'Core', description: 'Elbow under shoulder; stack feet.'),
+  Exercise(name: 'Side Plank with Hip Dip', muscle: 'Core', description: 'Controlled dips; oblique focus.'),
+  Exercise(name: 'Russian Twist', muscle: 'Core', description: 'Rotate torso; keep spine tall.'),
+  Exercise(name: 'V-up', muscle: 'Core', description: 'Fold body; reach hands to feet.'),
+  Exercise(name: 'Toe Touches', muscle: 'Core', description: 'Legs up; crunch to toes.'),
+  Exercise(name: 'Mountain Climbers', muscle: 'Core', description: 'Plank position; knees drive fast.'),
+  Exercise(name: 'Ab Wheel Rollout', muscle: 'Core', description: 'Brace hard; avoid lumbar arch.'),
+  Exercise(name: 'Dragon Flag', muscle: 'Core', description: 'Body rigid; lower under control.'),
+  Exercise(name: 'Hanging Knee Raise', muscle: 'Core', description: 'Posterior tilt; avoid swinging.'),
+  Exercise(name: 'L-Sit', muscle: 'Core', description: 'Parallel bars; legs straight out.'),
+  Exercise(name: 'Windshield Wipers', muscle: 'Core', description: 'Hanging; rotate legs side to side.'),
+  Exercise(name: 'Sit-up with Twist', muscle: 'Core', description: 'Add rotation at top.'),
+  Exercise(name: 'Plank Shoulder Taps', muscle: 'Core', description: 'Anti-rotation; hips steady.'),
+  Exercise(name: 'Bird Dog', muscle: 'Core', description: 'Opposite arm/leg reach; stay level.'),
+  Exercise(name: 'Stir-the-Pot', muscle: 'Core', description: 'Forearms on ball; circles.'),
+  Exercise(name: 'Farmer Carry March', muscle: 'Core', description: 'Loaded march; anti-tilt.'),
+  Exercise(name: 'Reverse Hyper Crunch', muscle: 'Core', description: 'GHD; posterior chain + abs.'),
+
+  // --------- Full Body (add ~15) ----------
+  Exercise(name: 'Clean', muscle: 'Full Body', description: 'Power from hips; rack on shoulders.'),
+  Exercise(name: 'Power Clean', muscle: 'Full Body', description: 'Explosive triple extension; quick rack.'),
+  Exercise(name: 'Clean and Jerk', muscle: 'Full Body', description: 'Clean to rack; dip-drive to lockout.'),
+  Exercise(name: 'Snatch', muscle: 'Full Body', description: 'Wide grip; overhead catch; fast.'),
+  Exercise(name: 'Power Snatch', muscle: 'Full Body', description: 'Catch higher; speed emphasis.'),
+  Exercise(name: 'Thruster', muscle: 'Full Body', description: 'Front squat to push press combo.'),
+  Exercise(name: 'Man Maker', muscle: 'Full Body', description: 'DB burpee + row + clean + press.'),
+  Exercise(name: 'Devil Press', muscle: 'Full Body', description: 'Burpee into dual DB snatch.'),
+  Exercise(name: 'Bear Complex', muscle: 'Full Body', description: 'Clean, front squat, press, back squat, press.'),
+  Exercise(name: 'Turkish Get-Up', muscle: 'Full Body', description: 'Kettlebell from floor to stand.'),
+  Exercise(name: 'Kettlebell Clean', muscle: 'Full Body', description: 'Hip snap; rack softly.'),
+  Exercise(name: 'Kettlebell Snatch', muscle: 'Full Body', description: 'Punch through; overhead lockout.'),
+  Exercise(name: 'Sandbag Clean', muscle: 'Full Body', description: 'Grip awkward load; hip pop.'),
+  Exercise(name: 'Burpee Pull-up', muscle: 'Full Body', description: 'Burpee then jump to pull-up.'),
+  Exercise(name: 'Wall Ball', muscle: 'Full Body', description: 'Squat then throw to target.'),
+
+  // --------- Cardio (add ~10) ----------
+  Exercise(name: 'Jump Rope', muscle: 'Cardio', description: 'Rhythm hops; light on feet.'),
+  Exercise(name: 'Double-Unders', muscle: 'Cardio', description: 'Two rope passes per jump.'),
+  Exercise(name: 'Rowing (Erg)', muscle: 'Cardio', description: 'Leg drive; long smooth strokes.'),
+  Exercise(name: 'Assault Bike', muscle: 'Cardio', description: 'Arms and legs; interval friendly.'),
+  Exercise(name: 'SkiErg', muscle: 'Cardio', description: 'Hip hinge pulls; steady cadence.'),
+  Exercise(name: 'Stair Climber', muscle: 'Cardio', description: 'Upright; full foot contact.'),
+  Exercise(name: 'Treadmill Run', muscle: 'Cardio', description: 'Midfoot strike; relaxed shoulders.'),
+  Exercise(name: 'Incline Walk', muscle: 'Cardio', description: 'Steady uphill; low impact.'),
+  Exercise(name: 'Cycling (Spin Bike)', muscle: 'Cardio', description: 'Smooth cadence; avoid knee cave.'),
+  Exercise(name: 'Battle Ropes', muscle: 'Cardio', description: 'Alternating waves; core braced.'),
+
+  // --------- Extra Chest to round out count ----------
+  Exercise(name: 'Decline Push-up', muscle: 'Chest', description: 'Feet elevated; upper chest load.'),
+  Exercise(name: 'Incline Push-up', muscle: 'Chest', description: 'Hands on bench; easier regression.'),
+  Exercise(name: 'Iso Squeeze Push-up', muscle: 'Chest', description: 'Hands inward force; isometric tension.'),
+  Exercise(name: 'One-Arm Push-up (Assisted)', muscle: 'Chest', description: 'Wide stance; elevate support hand.'),
+  Exercise(name: 'Cable Crossover (Mid)', muscle: 'Chest', description: 'Meet hands at sternum; squeeze.'),
+
+  // --------- Extra Back ----------
+  Exercise(name: 'Wide-Grip Pull-up', muscle: 'Back', description: 'Elbows down; chest proud.'),
+  Exercise(name: 'Neutral-Grip Pull-up', muscle: 'Back', description: 'Parallel bars; shoulder-friendly.'),
+  Exercise(name: 'Weighted Pull-up', muscle: 'Back', description: 'Add belt/DB; strict reps.'),
+  Exercise(name: 'Band-Assisted Pull-up', muscle: 'Back', description: 'Assistance for full ROM.'),
+  Exercise(name: 'Machine Row (Hammer)', muscle: 'Back', description: 'Chest pad; pull elbows back.'),
+
+  // --------- Extra Legs ----------
+  Exercise(name: 'Curtsy Lunge', muscle: 'Legs', description: 'Step behind and across; glute med.'),
+  Exercise(name: 'Lateral Lunge', muscle: 'Legs', description: 'Step sideways; hips back.'),
+  Exercise(name: 'Heels-Elevated Squat', muscle: 'Legs', description: 'Wedge under heels; quad bias.'),
+  Exercise(name: 'Smith Machine Lunge', muscle: 'Legs', description: 'Fixed path; long stride.'),
+  Exercise(name: 'Belt Squat', muscle: 'Legs', description: 'Load hips; unload spine.'),
+
+  // --------- Extra Shoulders ----------
+  Exercise(name: 'Plate Raise', muscle: 'Shoulders', description: 'Front raise with plate; controlled.'),
+  Exercise(name: 'Cable Upright Row', muscle: 'Shoulders', description: 'Smooth path; elbows lead.'),
+  Exercise(name: 'Rear Delt Row', muscle: 'Shoulders', description: 'Elbows wide; pull to chest.'),
+  Exercise(name: 'Machine Lateral Raise', muscle: 'Shoulders', description: 'Seat height aligns shoulder joint.'),
+  Exercise(name: 'Face Pull to External Rotation', muscle: 'Shoulders', description: 'ER finish; scap control.'),
+
+  // --------- Extra Arms ----------
+  Exercise(name: 'Cable One-Arm Overhead Ext', muscle: 'Arms', description: 'Stagger stance; long head focus.'),
+  Exercise(name: 'Kettlebell Curl', muscle: 'Arms', description: 'Offset mass; wrist stability.'),
+  Exercise(name: 'Cable High Curl', muscle: 'Arms', description: 'Arms up; constant tension.'),
+  Exercise(name: 'Band Curl', muscle: 'Arms', description: 'Ascending resistance; high reps.'),
+  Exercise(name: 'Dips (Chest Lean)', muscle: 'Arms', description: 'Forward torso; triceps + chest.'),
+
+  // --------- Extra Core ----------
+  Exercise(name: 'Weighted Plank', muscle: 'Core', description: 'Load on back; neutral spine.'),
+  Exercise(name: 'Side Bend (DB)', muscle: 'Core', description: 'One DB; controlled lateral flexion.'),
+  Exercise(name: 'Cable Woodchop (High-Low)', muscle: 'Core', description: 'Diagonal chop; rotate hips.'),
+  Exercise(name: 'Cable Woodchop (Low-High)', muscle: 'Core', description: 'Diagonal lift; tall posture.'),
+  Exercise(name: 'Suitcase Deadlift (Core Bias)', muscle: 'Core', description: 'One-sided bar; anti-tilt.'),
+
+  // --------- Mixed/Accessory to reach 200 added ----------
+  Exercise(name: 'Sled Push', muscle: 'Full Body', description: 'Drive through feet; steady pace.'),
+  Exercise(name: 'Sled Pull (Backward)', muscle: 'Full Body', description: 'Quads burn; upright torso.'),
+  Exercise(name: 'Sled Drag (Forward)', muscle: 'Full Body', description: 'Hip extension; long strides.'),
+  Exercise(name: 'Farmer Carry Trap Bar', muscle: 'Full Body', description: 'Heavy holds; short steps.'),
+  Exercise(name: 'Sandbag Carry', muscle: 'Full Body', description: 'Bear hug; breathe and brace.'),
+  Exercise(name: 'Atlas Stone Load (Light)', muscle: 'Full Body', description: 'Round back allowed; tacky optional.'),
+  Exercise(name: 'Box Jump', muscle: 'Legs', description: 'Soft landing; step down.'),
+  Exercise(name: 'Broad Jump', muscle: 'Legs', description: 'Two-foot horizontal power.'),
+  Exercise(name: 'Single-Leg Box Jump', muscle: 'Legs', description: 'Explosive unilateral hop.'),
+  Exercise(name: 'Depth Jump', muscle: 'Legs', description: 'Drop then immediate jump.'),
+  Exercise(name: 'Kettlebell Goblet Lunge', muscle: 'Legs', description: 'Front-loaded lunge; upright.'),
+  Exercise(name: 'Kettlebell Front Rack Squat', muscle: 'Legs', description: 'Dual bells; core crush.'),
+  Exercise(name: 'Kettlebell Walking Lunge', muscle: 'Legs', description: 'Racked or suitcase carry.'),
+  Exercise(name: 'Trap Bar RDL', muscle: 'Back', description: 'Neutral handles; hinge cleanly.'),
+  Exercise(name: 'Cable Hip Abduction', muscle: 'Legs', description: 'Glute med; stand tall.'),
+  Exercise(name: 'Cable Hip Adduction', muscle: 'Legs', description: 'Inner thigh; slow control.'),
+  Exercise(name: '90/90 Hip Lift', muscle: 'Core', description: 'Posterior tilt; hamstrings on.'),
+  Exercise(name: 'Good Morning (Safety Bar)', muscle: 'Back', description: 'Comfortable rack; hinge.'),
+  Exercise(name: 'Safety Bar Squat', muscle: 'Legs', description: 'Torso upright; upper-back friendly.'),
+  Exercise(name: 'Front Squat (Cross-Arm)', muscle: 'Legs', description: 'Alternative rack; elbows high.'),
+  Exercise(name: 'Paused Squat', muscle: 'Legs', description: '1–3s in the hole; drive up.'),
+  Exercise(name: 'Tempo Squat', muscle: 'Legs', description: 'Slow eccentric; explode concentric.'),
+  Exercise(name: 'Pin Squat', muscle: 'Legs', description: 'Stop on pins; overcome dead-stop.'),
+  Exercise(name: 'Deficit RDL', muscle: 'Legs', description: 'Stand on plate; hamstring stretch.'),
+  Exercise(name: 'Snatch-Grip RDL', muscle: 'Back', description: 'Wide grip; upper-back tension.'),
+  Exercise(name: 'Hip Airplane', muscle: 'Core', description: 'Single-leg hinge; rotate pelvis.'),
+  Exercise(name: 'Kettlebell Windmill', muscle: 'Core', description: 'Overhead KB; hinge and rotate.'),
+  Exercise(name: 'Overhead Lunge', muscle: 'Legs', description: 'Bar/DB overhead; stabilize core.'),
+  Exercise(name: 'Front Rack Lunge', muscle: 'Legs', description: 'Bar on front; upright torso.'),
+  Exercise(name: 'Cyclist Squat', muscle: 'Legs', description: 'Narrow stance; heels high.'),
+  Exercise(name: 'Poliquin Step-up', muscle: 'Legs', description: 'Slant board; terminal knee.'),
+  Exercise(name: 'Spanish Deadlift (Band)', muscle: 'Legs', description: 'Band at hips; hinge pattern.'),
+  Exercise(name: 'Hip Halo Walk', muscle: 'Legs', description: 'Band around knees; steps out.'),
+  Exercise(name: 'Monster Walks', muscle: 'Legs', description: 'Band; diagonal steps.'),
+  Exercise(name: 'Clamshell', muscle: 'Legs', description: 'Side-lying; open knees.'),
+  Exercise(name: 'Copenhagen Plank', muscle: 'Core', description: 'Adductor side plank; top leg supported.'),
+  Exercise(name: 'Nordic Hip Hinge', muscle: 'Back', description: 'Partnered hinge; ham focus.'),
+  Exercise(name: 'Back Extension (45°)', muscle: 'Back', description: 'Hyper bench; hinge pattern.'),
+  Exercise(name: 'GHD Sit-up', muscle: 'Core', description: 'Full ROM; control spine.'),
+  Exercise(name: 'Reverse Lunge to Knee Drive', muscle: 'Legs', description: 'Explosive drive up.'),
+  Exercise(name: 'Split Squat Jumps', muscle: 'Legs', description: 'Alternating plyo lunges.'),
+  Exercise(name: 'Speed Skater Jumps', muscle: 'Legs', description: 'Lateral bounds; stick land.'),
+  Exercise(name: 'Kettlebell Dead Clean', muscle: 'Full Body', description: 'Hip snap; rack softly.'),
+  Exercise(name: 'Kettlebell Long Cycle', muscle: 'Full Body', description: 'Clean and jerk for reps.'),
+  Exercise(name: 'Sandbag Shouldering', muscle: 'Full Body', description: 'Load to shoulder; alternate sides.'),
+  Exercise(name: 'Log Clean & Press (Light)', muscle: 'Full Body', description: 'Neutral handles; leg drive.'),
+  Exercise(name: 'Axle Deadlift', muscle: 'Back', description: 'Thick bar; grip challenge.'),
+  Exercise(name: 'Deficit Split Squat', muscle: 'Legs', description: 'Front foot on plate; depth.'),
+  Exercise(name: 'Single-Leg Press', muscle: 'Legs', description: 'Unilateral machine press.'),
+  Exercise(name: 'Hip Thrust (Single-Leg)', muscle: 'Legs', description: 'Unilateral glute lockout.'),
+  Exercise(name: 'Step-up (High Box)', muscle: 'Legs', description: 'Control; push through heel.'),
+  Exercise(name: 'Kettlebell Suitcase Deadlift', muscle: 'Core', description: 'Asym load; anti-tilt.'),
+  Exercise(name: 'Deadlift Iso Hold', muscle: 'Back', description: 'Hold at lockout; grip focus.'),
+  Exercise(name: 'Plate Pinch Hold', muscle: 'Arms', description: 'Thumbs + fingers; grip work.'),
+  Exercise(name: 'Towel Pull-up', muscle: 'Back', description: 'Grip burner; neutral wrists.'),
+  Exercise(name: 'Mixed-Grip Deadlift', muscle: 'Back', description: 'Supinated/pronated; lock lats.'),
+  Exercise(name: 'RDL to Row Combo', muscle: 'Back', description: 'Hinge then row; complex.'),
+  Exercise(name: 'Eccentric Pull-up', muscle: 'Back', description: 'Jump up; slow 5–8s down.'),
+  Exercise(name: 'Scap Pull-up', muscle: 'Back', description: 'Depress/retract only; small ROM.'),
+  Exercise(name: 'Lat Prayer Stretch Pulldown', muscle: 'Back', description: 'Kneel; sweep to thighs.'),
+  Exercise(name: 'Cable Rear Delt Row', muscle: 'Shoulders', description: 'Elbows flared; midline pull.'),
+  Exercise(name: 'Prone W Raise', muscle: 'Shoulders', description: 'Scap retraction + ER.'),
+  Exercise(name: 'Prone T Raise', muscle: 'Shoulders', description: 'Mid traps; thumbs up.'),
+  Exercise(name: 'Prone Y Raise', muscle: 'Shoulders', description: 'Lower traps; reach long.'),
+  Exercise(name: 'Band Pull-Apart', muscle: 'Shoulders', description: 'Scap set; straight arms.'),
+  Exercise(name: 'External Rotation (Cable)', muscle: 'Shoulders', description: 'Elbow at side; rotate out.'),
+  Exercise(name: 'Internal Rotation (Cable)', muscle: 'Shoulders', description: 'Elbow at side; rotate in.'),
+  Exercise(name: 'Overhead Carry', muscle: 'Full Body', description: 'DB/Kettlebell; ribs down.'),
+  Exercise(name: 'Front Rack Carry', muscle: 'Full Body', description: 'Elbows forward; brace tight.'),
+  Exercise(name: 'Zercher Carry', muscle: 'Full Body', description: 'Bar in elbows; walk tall.'),
+  Exercise(name: 'Bear Crawl', muscle: 'Full Body', description: 'Hips low; contralateral steps.'),
+  Exercise(name: 'Crab Walk', muscle: 'Full Body', description: 'Hips up; backwards/forwards.'),
+  Exercise(name: 'Lateral Bear Crawl', muscle: 'Full Body', description: 'Sideways crawl; core on.'),
+  Exercise(name: 'Sprint (Flat)', muscle: 'Cardio', description: 'Max effort; full recovery.'),
+  Exercise(name: 'Hill Sprint', muscle: 'Cardio', description: 'Uphill; reduced impact.'),
+  Exercise(name: 'Sled Sprint', muscle: 'Cardio', description: 'Resisted acceleration.'),
+  Exercise(name: 'Shadow Boxing', muscle: 'Cardio', description: 'Light combos; quick feet.'),
+  Exercise(name: 'Boxing Heavy Bag', muscle: 'Cardio', description: 'Rounds; power shots.'),
+  Exercise(name: 'Jumping Jacks', muscle: 'Cardio', description: 'Arms overhead; steady rhythm.'),
+  Exercise(name: 'High Knees', muscle: 'Cardio', description: 'Fast cadence; pump arms.'),
+  Exercise(name: 'Butt Kicks', muscle: 'Cardio', description: 'Hamstring activation; quick steps.'),
+  Exercise(name: 'Burpee Box Jump', muscle: 'Full Body', description: 'Burpee then jump on box.'),
+  Exercise(name: 'Overhead Med Ball Slam', muscle: 'Full Body', description: 'Explosive slam; reset fast.'),
+  Exercise(name: 'Rotational Med Ball Throw', muscle: 'Full Body', description: 'Hip rotate; wall throw.'),
+  Exercise(name: 'Chest Pass Med Ball', muscle: 'Chest', description: 'Explosive throw; catch rebound.'),
+  Exercise(name: 'Lateral Med Ball Toss', muscle: 'Full Body', description: 'Side throw; load hips.'),
+  Exercise(name: 'KB Gorilla Row', muscle: 'Back', description: 'Hinge; alternating rows.'),
+  Exercise(name: 'KB Dead Stop Row', muscle: 'Back', description: 'Reset on floor; strict pull.'),
+  Exercise(name: 'DB Row on Bench', muscle: 'Back', description: 'Knee/hand support; pull to hip.'),
+  Exercise(name: 'Cable Lat Prayer', muscle: 'Back', description: 'Tall kneel; sweep down.'),
+  Exercise(name: 'Smith Machine RDL', muscle: 'Back', description: 'Guided hinge; hamstrings.'),
+  Exercise(name: 'Smith Machine Calf Raise', muscle: 'Legs', description: 'Set stops; full ROM.'),
+  Exercise(name: 'Standing Adductor Machine', muscle: 'Legs', description: 'Squeeze pads inward.'),
+  Exercise(name: 'Standing Abductor Machine', muscle: 'Legs', description: 'Press pads outward.'),
+  Exercise(name: 'Hip Thrust (Foam Pad)', muscle: 'Legs', description: 'Pad for comfort; full lock.'),
+  Exercise(name: 'Barbell Glute Bridge', muscle: 'Legs', description: 'Floor version; squeeze peak.'),
+  Exercise(name: 'Single-Leg Box Squat', muscle: 'Legs', description: 'Control to box; stand tall.'),
+  Exercise(name: 'Seated Good Morning', muscle: 'Back', description: 'Hips hinge seated; erectors.'),
+  Exercise(name: 'Good Morning (Banded)', muscle: 'Back', description: 'Band posterior chain finisher.'),
+  Exercise(name: 'Hip Hinge Wall Drill', muscle: 'Back', description: 'Butt to wall; learn hinge.'),
+  Exercise(name: 'Heel Slide Curl', muscle: 'Legs', description: 'Sliders; hamstring curl.'),
+  Exercise(name: 'Hamstring Walkouts', muscle: 'Legs', description: 'Bridge then small steps out.'),
+  Exercise(name: 'Spanish Squat Iso Hold', muscle: 'Legs', description: 'Band; sit and hold.'),
+  Exercise(name: 'Isometric Mid-Thigh Pull', muscle: 'Full Body', description: 'Against pins; maximal pull.'),
+  Exercise(name: 'Pin Press (Bench)', muscle: 'Chest', description: 'Bar on pins; lockout power.'),
+  Exercise(name: 'Board Press', muscle: 'Chest', description: 'Range limiter; triceps heavy.'),
+  Exercise(name: 'Floor Flye', muscle: 'Chest', description: 'Arms stop at floor; safer shoulders.'),
+  Exercise(name: 'Cable Press Around', muscle: 'Chest', description: 'Arc across body; adduction.'),
+  Exercise(name: 'Reverse-Grip Bench Press', muscle: 'Chest', description: 'Supinated grip; upper chest.'),
+  Exercise(name: 'Incline Smith Press', muscle: 'Chest', description: 'Fixed path; upper chest sets.'),
+  Exercise(name: 'Partial ROM Bench', muscle: 'Chest', description: 'Top-half overload; triceps.'),
+  Exercise(name: 'Overhead Triceps Extension (EZ)', muscle: 'Arms', description: 'Seated; long head stretch.'),
+  Exercise(name: 'Rolling DB Triceps Ext', muscle: 'Arms', description: 'Elbows travel; shoulder friendly.'),
+  Exercise(name: 'Cable Crossbody Extension', muscle: 'Arms', description: 'Across face; lock out.'),
+  Exercise(name: 'Pressdown (V-Bar)', muscle: 'Arms', description: 'Neutral grip; strong finish.'),
+  Exercise(name: 'Overhead Rope Extension', muscle: 'Arms', description: 'Flare rope at top.'),
+  Exercise(name: 'Kettlebell Skullcrusher', muscle: 'Arms', description: 'Neutral wrists; control.'),
+  Exercise(name: 'Tate Press', muscle: 'Arms', description: 'DBs to chest; triceps burn.'),
+  Exercise(name: 'Reverse-Grip Bench Dip', muscle: 'Arms', description: 'Supinated; small ROM.'),
+  Exercise(name: 'Incline Curl', muscle: 'Arms', description: 'Long head; elbows back.'),
+  Exercise(name: 'Cable Preacher Curl', muscle: 'Arms', description: 'Pad + cable; tension constant.'),
+  Exercise(name: 'Machine Curl', muscle: 'Arms', description: 'Fixed track; peak squeeze.'),
+  Exercise(name: 'One-Arm Preacher Curl', muscle: 'Arms', description: 'Unilateral; strict.'),
+  Exercise(name: 'Band Face Curl', muscle: 'Arms', description: 'Band curl to forehead.'),
+  Exercise(name: 'Wrist Roller', muscle: 'Arms', description: 'Roll up/down; forearms.'),
+  Exercise(name: 'Plate Curl', muscle: 'Arms', description: 'Pinch plate; supinate up.'),
+  Exercise(name: 'Cable Rope Hammer Curl', muscle: 'Arms', description: 'Neutral grip; end flare.'),
+  Exercise(name: 'JM Press (Smith)', muscle: 'Arms', description: 'Guided triceps compound.'),
+  Exercise(name: 'Close-Grip Board Press', muscle: 'Arms', description: 'Triceps lockout focus.'),
+  Exercise(name: 'French Press (EZ)', muscle: 'Arms', description: 'Lying triceps; behind head.'),
+  Exercise(name: 'Crossbody Cable Extension', muscle: 'Arms', description: 'Elbow high; extend across.'),
+  Exercise(name: 'Forearm Pronation/Supination', muscle: 'Arms', description: 'DB/hammer; rotation work.'),
+
+  // --------- Extra Cardio finishers ----------
+  Exercise(name: 'Row Sprint Intervals', muscle: 'Cardio', description: '30/30s or similar bursts.'),
+  Exercise(name: 'Bike Sprint Intervals', muscle: 'Cardio', description: 'All-out then recover.'),
+  Exercise(name: 'Treadmill Sprint Intervals', muscle: 'Cardio', description: 'Timed repeats; safe dismount.'),
+  Exercise(name: 'Shuttle Runs', muscle: 'Cardio', description: 'Short sprints; quick turns.'),
+  Exercise(name: 'Farmer Carry Intervals', muscle: 'Cardio', description: 'Timed heavy carries.'),
+
+  // --------- Mobility/Prehab (still categorized) ----------
+  Exercise(name: 'Banded Shoulder Dislocates', muscle: 'Shoulders', description: 'Wide grip; smooth arcs.'),
+  Exercise(name: 'Scap Push-up', muscle: 'Shoulders', description: 'Protraction/retraction only.'),
+  Exercise(name: 'Thoracic Extension on Foam Roller', muscle: 'Back', description: 'Upper-back mobility.'),
+  Exercise(name: '90/90 Shoulder External Rotation', muscle: 'Shoulders', description: 'Elbow at 90; rotate.'),
+  Exercise(name: 'Ankle Dorsiflexion Rock', muscle: 'Legs', description: 'Knee to wall; controlled.'),
+
+  // ===== Chest (25) =====
+  Exercise(name: 'Machine Incline Chest Press', muscle: 'Chest', description: 'Guided path; upper-chest focus.'),
+  Exercise(name: 'Machine Decline Chest Press', muscle: 'Chest', description: 'Fixed arc; lower-chest emphasis.'),
+  Exercise(name: 'Smith Machine Incline Press', muscle: 'Chest', description: 'Fixed track; steady tempo.'),
+  Exercise(name: 'Smith Machine Decline Press', muscle: 'Chest', description: 'Reduced stabilizers; lower chest.'),
+  Exercise(name: 'Weighted Dips (Chest Lean)', muscle: 'Chest', description: 'Forward torso; adduction squeeze.'),
+  Exercise(name: 'Ring Dips (Chest)', muscle: 'Chest', description: 'Instability; deep stretch.'),
+  Exercise(name: 'Cable Flye (Mid-to-Mid)', muscle: 'Chest', description: 'Meet at sternum; slight cross.'),
+  Exercise(name: 'Cable Flye (One-Arm)', muscle: 'Chest', description: 'Unilateral adduction; anti-rotation.'),
+  Exercise(name: 'Low Cable Press', muscle: 'Chest', description: 'From low pulleys; arc upward.'),
+  Exercise(name: 'High Cable Press', muscle: 'Chest', description: 'From high pulleys; arc downward.'),
+  Exercise(name: 'Standing Landmine Flye', muscle: 'Chest', description: 'Arc in toward midline.'),
+  Exercise(name: 'Dumbbell Squeeze Press', muscle: 'Chest', description: 'DBs pressed together; inner chest.'),
+  Exercise(name: 'Hex Press', muscle: 'Chest', description: 'DBs touching; slow eccentric.'),
+  Exercise(name: 'Floor Flye (DB)', muscle: 'Chest', description: 'Limited ROM; shoulder-friendly.'),
+  Exercise(name: 'Push-up (Clap)', muscle: 'Chest', description: 'Plyometric; explosive press.'),
+  Exercise(name: 'Push-up (Spiderman)', muscle: 'Chest', description: 'Knee to elbow during push.'),
+  Exercise(name: 'Push-up (Pseudo Planche)', muscle: 'Chest', description: 'Hands by hips; forward lean.'),
+  Exercise(name: 'Push-up (Archer Ring)', muscle: 'Chest', description: 'Ring instability; side load.'),
+  Exercise(name: 'Crossover Push-up', muscle: 'Chest', description: 'Hand on plate; switch sides.'),
+  Exercise(name: 'Isometric Chest Press (Plate)', muscle: 'Chest', description: 'Squeeze plate at chest.'),
+  Exercise(name: 'Flye Machine (Reverse Grip)', muscle: 'Chest', description: 'Supinated grip; upper chest.'),
+  Exercise(name: 'Guillotine DB Press', muscle: 'Chest', description: 'Light weight; bar-to-neck pattern.'),
+  Exercise(name: 'Cable Press Around (One-Arm)', muscle: 'Chest', description: 'Wrap arc across torso.'),
+  Exercise(name: 'Incline Close-Grip DB Press', muscle: 'Chest', description: 'Narrow DB path; triceps assist.'),
+  Exercise(name: 'Tempo Bench (3-1-1)', muscle: 'Chest', description: 'Slow down, pause, drive up.'),
+
+  // ===== Back (25) =====
+  Exercise(name: 'Machine High Row', muscle: 'Back', description: 'Elbows down/back; lat focus.'),
+  Exercise(name: 'Machine Low Row', muscle: 'Back', description: 'Pull to navel; mid-back.'),
+  Exercise(name: 'Seal Row (Barbell)', muscle: 'Back', description: 'Bench-supported; strict pull.'),
+  Exercise(name: 'Chest-Supported T-Bar Row', muscle: 'Back', description: 'No low-back stress; heavy rows.'),
+  Exercise(name: 'One-Arm Barbell Row', muscle: 'Back', description: 'Barbell end loaded; hip hinge.'),
+  Exercise(name: 'Dual Cable Row', muscle: 'Back', description: 'Independently moving handles.'),
+  Exercise(name: 'Wide Neutral Pulldown', muscle: 'Back', description: 'Parallel grip; shoulder-friendly.'),
+  Exercise(name: 'Behind-the-Neck Pulldown (Light)', muscle: 'Back', description: 'ROM limited; upright spine.'),
+  Exercise(name: 'Kneeling Lat Pulldown', muscle: 'Back', description: 'Tall kneel; torso stable.'),
+  Exercise(name: 'Pullover (Machine)', muscle: 'Back', description: 'Lat isolation; elbows fixed.'),
+  Exercise(name: 'Dumbbell Pullover (Lat Bias)', muscle: 'Back', description: 'Arms soft; ribcage down.'),
+  Exercise(name: 'Cable Pullover (Bar)', muscle: 'Back', description: 'Straight arms; sweep to thighs.'),
+  Exercise(name: 'Chest-Supported Rear Delt Row', muscle: 'Back', description: 'Elbows flared; upper-back.'),
+  Exercise(name: 'Snatch-Grip Barbell Row', muscle: 'Back', description: 'Wide grip; upper-back load.'),
+  Exercise(name: 'Underhand Barbell Row', muscle: 'Back', description: 'Supinated; lower-lat line.'),
+  Exercise(name: 'Lever Row (Iso-Lateral)', muscle: 'Back', description: 'Single-side focus; brace core.'),
+  Exercise(name: 'Kelso Shrug', muscle: 'Back', description: 'Row + shrug; mid traps.'),
+  Exercise(name: 'Prone Chest-Supported Shrug', muscle: 'Back', description: 'Scap elevation/depression only.'),
+  Exercise(name: 'Cable Face Pull (Kneeling)', muscle: 'Back', description: 'Set hips; rope to eyes.'),
+  Exercise(name: 'Reverse Pec Deck', muscle: 'Back', description: 'Rear delts and mid traps.'),
+  Exercise(name: 'Band-Assisted Inverted Row', muscle: 'Back', description: 'Full ROM regression.'),
+  Exercise(name: 'Weighted Inverted Row', muscle: 'Back', description: 'Add plate/vest; strict.'),
+  Exercise(name: 'Deficit Trap Bar Deadlift', muscle: 'Back', description: 'Stand on plate; longer ROM.'),
+  Exercise(name: 'Paused Deadlift (Below Knee)', muscle: 'Back', description: 'Stop mid-shin; maintain lats.'),
+  Exercise(name: 'RDL (Tempo 4s Down)', muscle: 'Back', description: 'Long eccentric; hamstring load.'),
+
+  // ===== Legs (25) =====
+  Exercise(name: 'Smith Machine Split Squat', muscle: 'Legs', description: 'Guided unilateral; long stride.'),
+  Exercise(name: 'Pendulum Squat', muscle: 'Legs', description: 'Machine; deep knee travel.'),
+  Exercise(name: 'V-Squat (Machine)', muscle: 'Legs', description: 'Back-supported; quad focus.'),
+  Exercise(name: 'Power Squat (Machine)', muscle: 'Legs', description: 'Plate-loaded; stable path.'),
+  Exercise(name: 'Prowler Push', muscle: 'Legs', description: 'Drive quads; steady steps.'),
+  Exercise(name: 'Backward Sled Drag', muscle: 'Legs', description: 'Knee over toes; quad burn.'),
+  Exercise(name: 'Spanish Split Squat', muscle: 'Legs', description: 'Band around knees; upright.'),
+  Exercise(name: 'Reverse Nordics', muscle: 'Legs', description: 'Quad lengthening; torso tall.'),
+  Exercise(name: 'Seated Good Morning (SSB)', muscle: 'Legs', description: 'Hamstrings + erectors seated.'),
+  Exercise(name: 'Hamstring Curl (Standing)', muscle: 'Legs', description: 'Unilateral; top squeeze.'),
+  Exercise(name: 'Glute Kickback (Cable)', muscle: 'Legs', description: 'Hip extension; squeeze glutes.'),
+  Exercise(name: 'Glute Kickback (Machine)', muscle: 'Legs', description: 'Guided hip drive.'),
+  Exercise(name: 'Hip Abduction (Cable)', muscle: 'Legs', description: 'Glute med/min; slow control.'),
+  Exercise(name: 'Hip Adduction (Cable)', muscle: 'Legs', description: 'Inner thigh; tall posture.'),
+  Exercise(name: 'Duck Walk (Band)', muscle: 'Legs', description: 'Band above knees; small steps.'),
+  Exercise(name: 'Heels-Elevated Hack Squat', muscle: 'Legs', description: 'Wedge; knee travel forward.'),
+  Exercise(name: 'Kang Squat', muscle: 'Legs', description: 'Good morning into squat combo.'),
+  Exercise(name: 'Front Squat (Straps)', muscle: 'Legs', description: 'Strap-assisted front rack.'),
+  Exercise(name: 'Tempo Lunge (3s Down)', muscle: 'Legs', description: 'Eccentric control; balance.'),
+  Exercise(name: 'Walking Lunge (Front Rack)', muscle: 'Legs', description: 'Barbell front rack; upright.'),
+  Exercise(name: 'Step-Down (Lateral)', muscle: 'Legs', description: 'Lateral control; knee track.'),
+  Exercise(name: 'Sissy Squat (Assisted)', muscle: 'Legs', description: 'Hold support; knee travel.'),
+  Exercise(name: 'Jefferson Lunge', muscle: 'Legs', description: 'Straddle bar; anti-rotation.'),
+  Exercise(name: 'Box Pistol Squat', muscle: 'Legs', description: 'To box; single-leg pattern.'),
+  Exercise(name: 'Seated Calf Raise (Single-Leg)', muscle: 'Legs', description: 'Unilateral soleus work.'),
+
+  // ===== Shoulders (25) =====
+  Exercise(name: 'Standing Dumbbell Press (Neutral)', muscle: 'Shoulders', description: 'Neutral grip; scapular plane.'),
+  Exercise(name: 'Single-Arm Landmine Press', muscle: 'Shoulders', description: 'Angled path; core anti-rot.'),
+  Exercise(name: 'Kettlebell Strict Press', muscle: 'Shoulders', description: 'Bell rests on forearm; lockout.'),
+  Exercise(name: 'Kettlebell Bottom-Up Press', muscle: 'Shoulders', description: 'Grip/stability challenge.'),
+  Exercise(name: 'Machine Lateral Raise (Unilateral)', muscle: 'Shoulders', description: 'Side by side; strict.'),
+  Exercise(name: 'Cable Lateral Raise (Behind Back)', muscle: 'Shoulders', description: 'Stretch start; smooth arc.'),
+  Exercise(name: 'Prone Rear Delt Flye (Incline)', muscle: 'Shoulders', description: 'Chest on bench; pinkies high.'),
+  Exercise(name: 'Reverse Cable Crossover (Rear Delt)', muscle: 'Shoulders', description: 'Cross arms; small ROM.'),
+  Exercise(name: 'Snatch-Grip Push Press', muscle: 'Shoulders', description: 'Wide grip; dip-drive.'),
+  Exercise(name: 'Muscle Snatch (Light)', muscle: 'Shoulders', description: 'No re-bend; crisp turnover.'),
+  Exercise(name: 'Bradford Press (Smith)', muscle: 'Shoulders', description: 'Front/back partials; no lock.'),
+  Exercise(name: 'Partial Lateral Raise (Top Half)', muscle: 'Shoulders', description: 'Short ROM overload.'),
+  Exercise(name: 'Incline Y-Raise (DB)', muscle: 'Shoulders', description: 'Lower traps; reach long.'),
+  Exercise(name: 'Scaption Raise (Cable)', muscle: 'Shoulders', description: 'Thumbs up; scap plane.'),
+  Exercise(name: 'Front Raise (Cable Rope)', muscle: 'Shoulders', description: 'Smooth tension; eye level.'),
+  Exercise(name: 'Upright Row (Kettlebell)', muscle: 'Shoulders', description: 'Elbows high; neutral wrists.'),
+  Exercise(name: 'Cuban Rotation (Cable)', muscle: 'Shoulders', description: 'High pull + ER; light.'),
+  Exercise(name: 'External Rotation (Side-Lying)', muscle: 'Shoulders', description: 'Rotator cuff; slow.'),
+  Exercise(name: 'Internal Rotation (Side-Lying)', muscle: 'Shoulders', description: 'Rotator cuff; steady.'),
+  Exercise(name: 'Handstand Shoulder Taps', muscle: 'Shoulders', description: 'Wall support; alternating taps.'),
+  Exercise(name: 'Wall Walks', muscle: 'Shoulders', description: 'Crawl up wall to HS; control.'),
+  Exercise(name: 'Pike Handstand Hold', muscle: 'Shoulders', description: 'Feet on box; vertical press.'),
+  Exercise(name: 'Lateral Raise (Cable Behind Body)', muscle: 'Shoulders', description: 'Cable starts behind hip.'),
+  Exercise(name: 'Serratus Wall Slides', muscle: 'Shoulders', description: 'Foam roller; protraction.'),
+  Exercise(name: 'Overhead Shrug', muscle: 'Shoulders', description: 'Bar overhead; shrug up.'),
+
+  // ===== Arms (25) =====
+  Exercise(name: 'Cable Concentration Curl', muscle: 'Arms', description: 'Kneeling; constant tension.'),
+  Exercise(name: 'High Cable Curl (Dual)', muscle: 'Arms', description: 'Arms abducted; peak bias.'),
+  Exercise(name: 'Machine Preacher Curl', muscle: 'Arms', description: 'Fixed pad; strict reps.'),
+  Exercise(name: 'Spider Curl (Cable)', muscle: 'Arms', description: 'Chest on bench; smooth tension.'),
+  Exercise(name: 'Kettlebell Zottman Curl', muscle: 'Arms', description: 'Supinate up; pronate down.'),
+  Exercise(name: 'Reverse Curl (Fat Grip)', muscle: 'Arms', description: 'Thick handle; forearms.'),
+  Exercise(name: 'Cable Reverse Curl (EZ Attachment)', muscle: 'Arms', description: 'Pronated; wrist-friendly.'),
+  Exercise(name: 'Cross-Body Cable Curl', muscle: 'Arms', description: 'To opposite shoulder; long head.'),
+  Exercise(name: 'Incline Cable Curl', muscle: 'Arms', description: 'Elbows back; stretch.'),
+  Exercise(name: 'Overhead Cable Curl', muscle: 'Arms', description: 'Arms high; constant tension.'),
+  Exercise(name: 'French Press (DB)', muscle: 'Arms', description: 'Seated two-DB triceps.'),
+  Exercise(name: 'Overhead Triceps (Kettlebell)', muscle: 'Arms', description: 'Bell behind head; lockout.'),
+  Exercise(name: 'Cable Cross-Body Triceps Ext', muscle: 'Arms', description: 'Across face; full extension.'),
+  Exercise(name: 'Underhand Pushdown', muscle: 'Arms', description: 'Supinated; medial head bias.'),
+  Exercise(name: 'Dip Machine', muscle: 'Arms', description: 'Guided triceps press-down.'),
+  Exercise(name: 'Close-Grip Floor Press', muscle: 'Arms', description: 'Triceps lockout; reduced ROM.'),
+  Exercise(name: 'JM Press (Dumbbells)', muscle: 'Arms', description: 'Hybrid press + extension.'),
+  Exercise(name: 'Cable Tate Press', muscle: 'Arms', description: 'Rope or handles; squeeze top.'),
+  Exercise(name: 'Forearm Farmer Hold', muscle: 'Arms', description: 'Heavy static grip carry.'),
+  Exercise(name: 'Plate Wrist Curl (Edge)', muscle: 'Arms', description: 'Forearms on bench; curl plate.'),
+  Exercise(name: 'Cable Wrist Flexion', muscle: 'Arms', description: 'Low pulley; strict flexion.'),
+  Exercise(name: 'Cable Wrist Extension', muscle: 'Arms', description: 'Low pulley; strict extension.'),
+  Exercise(name: 'Reverse Grip EZ Skullcrusher', muscle: 'Arms', description: 'Supinated; elbow-friendly.'),
+  Exercise(name: 'Incline Tate Press', muscle: 'Arms', description: 'DBs touch chest; extend.'),
+  Exercise(name: 'One-Arm Cable Pushdown (Kneeling)', muscle: 'Arms', description: 'Stabilize torso; full lock.'),
+
+  // ===== Core (25) =====
+  Exercise(name: 'Swiss Ball Crunch', muscle: 'Core', description: 'Greater ROM; ribcage to pelvis.'),
+  Exercise(name: 'Swiss Ball Stir-the-Pot', muscle: 'Core', description: 'Circles; core brace.'),
+  Exercise(name: 'Swiss Ball Pike', muscle: 'Core', description: 'Hips high; controlled fold.'),
+  Exercise(name: 'Swiss Ball Rollout', muscle: 'Core', description: 'Similar to wheel; brace.'),
+  Exercise(name: 'TRX Fallout', muscle: 'Core', description: 'Suspension rollout; neutral spine.'),
+  Exercise(name: 'TRX Body Saw', muscle: 'Core', description: 'Forearm plank; rock back/forward.'),
+  Exercise(name: 'Side Plank Star', muscle: 'Core', description: 'Top leg raised; adductors on.'),
+  Exercise(name: 'RKC Plank', muscle: 'Core', description: 'Hard brace; short duration.'),
+  Exercise(name: 'Long Lever Plank', muscle: 'Core', description: 'Elbows ahead of shoulders.'),
+  Exercise(name: 'Hanging Oblique Raise', muscle: 'Core', description: 'Knees to sides; no swing.'),
+  Exercise(name: 'Captain’s Chair Leg Raise', muscle: 'Core', description: 'Elbows on pads; tilt pelvis.'),
+  Exercise(name: 'Cable Woodchop (Horizontal)', muscle: 'Core', description: 'Rotate torso; hips square.'),
+  Exercise(name: 'Half-Kneeling Pallof Press', muscle: 'Core', description: 'Anti-rotation; glute on.'),
+  Exercise(name: 'Tall-Kneeling Pallof Press', muscle: 'Core', description: 'Ribs down; squeeze glutes.'),
+  Exercise(name: 'Oblique Crunch (Machine)', muscle: 'Core', description: 'Side bend; control ROM.'),
+  Exercise(name: 'Decline Reverse Crunch', muscle: 'Core', description: 'Posterior tilt; slow return.'),
+  Exercise(name: 'Hanging Toes-to-Bar', muscle: 'Core', description: 'Touch bar; hollow body.'),
+  Exercise(name: 'L-Sit on Rings', muscle: 'Core', description: 'Scap depression; legs parallel.'),
+  Exercise(name: 'Ab Mat Sit-up', muscle: 'Core', description: 'Lumbar support; full sit.'),
+  Exercise(name: 'McGill Curl-Up', muscle: 'Core', description: 'Neutral spine; one knee bent.'),
+  Exercise(name: 'Side Bend (Cable)', muscle: 'Core', description: 'Lateral flexion; obliques.'),
+  Exercise(name: 'Cable Anti-Extension', muscle: 'Core', description: 'Walkout hold; neutral ribs.'),
+  Exercise(name: 'Dead Bug (Band Resisted)', muscle: 'Core', description: 'Band overhead; anti-ext.'),
+  Exercise(name: 'Birddog Row', muscle: 'Core', description: 'Bench birddog + DB row combo.'),
+  Exercise(name: 'Hanging L-Sit Hold', muscle: 'Core', description: 'Static 90° hip flexion.'),
+
+  // ===== Full Body (25) =====
+  Exercise(name: 'Complex A (Row+Clean+Front Squat+Press)', muscle: 'Full Body', description: 'Barbell complex; no drop.'),
+  Exercise(name: 'Complex B (RDL+Row+Hang Clean+Jerk)', muscle: 'Full Body', description: 'Bar flow; moderate load.'),
+  Exercise(name: 'KB Complex (Swing+Clean+Press)', muscle: 'Full Body', description: 'Unbroken series; both sides.'),
+  Exercise(name: 'Bear Crawl Pull-Through', muscle: 'Full Body', description: 'Crawl with KB drag.'),
+  Exercise(name: 'Crawl to Push-up', muscle: 'Full Body', description: 'Forward crawl then strict push-up.'),
+  Exercise(name: 'Devil Clean (DB)', muscle: 'Full Body', description: 'Burpee into double DB clean.'),
+  Exercise(name: 'Ground-to-Overhead (Plate)', muscle: 'Full Body', description: 'From floor to lockout.'),
+  Exercise(name: 'Sandbag Over Shoulder', muscle: 'Full Body', description: 'Hip pop; alternate sides.'),
+  Exercise(name: 'Sandbag Carry (Bear Hug)', muscle: 'Full Body', description: 'Odd object; brace torso.'),
+  Exercise(name: 'Yoke Zercher Carry', muscle: 'Full Body', description: 'Yoke in elbow pits; walk tall.'),
+  Exercise(name: 'Sled Rope Pull', muscle: 'Full Body', description: 'Hand-over-hand pull; back/arms.'),
+  Exercise(name: 'Sled Push to Sprint', muscle: 'Full Body', description: 'Transition to unresisted run.'),
+  Exercise(name: 'Wall Ball (Heavy)', muscle: 'Full Body', description: 'Lower target volume; power.'),
+  Exercise(name: 'Thruster (Dumbbell)', muscle: 'Full Body', description: 'DB front squat into press.'),
+  Exercise(name: 'Cluster (Clean+Thruster)', muscle: 'Full Body', description: 'Clean then thruster rep.'),
+  Exercise(name: 'Man-Maker (Push-up+Row+Clean+Press)', muscle: 'Full Body', description: 'DB sequence; finish stand.'),
+  Exercise(name: 'Burpee to DB Snatch', muscle: 'Full Body', description: 'Alt arms; overhead finish.'),
+  Exercise(name: 'KB Clean and Jerk (Long Cycle)', muscle: 'Full Body', description: 'Endurance set; pace.'),
+  Exercise(name: 'KB Half Snatch', muscle: 'Full Body', description: 'Lower to rack; save grip.'),
+  Exercise(name: 'Med Ball Clean', muscle: 'Full Body', description: 'Triple extension; quick elbows.'),
+  Exercise(name: 'Med Ball Thruster', muscle: 'Full Body', description: 'Squat and press ball.'),
+  Exercise(name: 'Axle Clean (Continental)', muscle: 'Full Body', description: 'Thick bar; belly shelf.'),
+  Exercise(name: 'Log Viper Press (Light)', muscle: 'Full Body', description: 'No jerk; leg drive to press.'),
+  Exercise(name: 'Odd-Object Shouldering', muscle: 'Full Body', description: 'Stones/sandbags; braced back.'),
+  Exercise(name: 'Suitcase Carry to Press', muscle: 'Full Body', description: 'Carry then strict single-arm press.'),
+
+  // ===== Cardio (25) =====
+  Exercise(name: 'Row Erg Long Steady', muscle: 'Cardio', description: 'Zone 2; nasal breathing.'),
+  Exercise(name: 'Row Erg Pyramid Intervals', muscle: 'Cardio', description: '1-2-3-2-1 min efforts.'),
+  Exercise(name: 'Air Bike Long Steady', muscle: 'Cardio', description: 'Even cadence; low RPE.'),
+  Exercise(name: 'Air Bike Tabata', muscle: 'Cardio', description: '20s on/10s off x8.'),
+  Exercise(name: 'SkiErg Long Steady', muscle: 'Cardio', description: 'Hip hinge pulls; aerobic.'),
+  Exercise(name: 'SkiErg Sprint Repeats', muscle: 'Cardio', description: 'Hard 250m; full rest.'),
+  Exercise(name: 'Treadmill Hill Intervals', muscle: 'Cardio', description: 'Incline repeats; steady pace.'),
+  Exercise(name: 'Track Repeats (400m)', muscle: 'Cardio', description: 'Even splits; walk rest.'),
+  Exercise(name: 'Stair Climber Intervals', muscle: 'Cardio', description: '1:1 work:rest sets.'),
+  Exercise(name: 'Outdoor Tempo Run', muscle: 'Cardio', description: 'Comfortably hard pace.'),
+  Exercise(name: 'Ruck Walk', muscle: 'Cardio', description: 'Loaded pack; brisk walk.'),
+  Exercise(name: 'Agility Ladder (Fast Feet)', muscle: 'Cardio', description: 'Light contacts; rhythm.'),
+  Exercise(name: 'Shuttle Run (5-10-5)', muscle: 'Cardio', description: 'Pro-agility pattern.'),
+  Exercise(name: 'Box Step-Overs (DB)', muscle: 'Cardio', description: 'Continuous; light weights.'),
+  Exercise(name: 'Jump Rope (Criss-Cross)', muscle: 'Cardio', description: 'Cross arms while jumping.'),
+  Exercise(name: 'Jump Rope (Side Swing)', muscle: 'Cardio', description: 'Alternate side swings.'),
+  Exercise(name: 'Jump Rope (EB Swing)', muscle: 'Cardio', description: 'Behind-the-back cross.'),
+  Exercise(name: 'Burpee Broad Jump', muscle: 'Cardio', description: 'Burpee then long jump.'),
+  Exercise(name: 'Mountain Climbers (Cross-Body)', muscle: 'Cardio', description: 'Knee to opposite elbow.'),
+  Exercise(name: 'High Knees in Place (Intervals)', muscle: 'Cardio', description: '30–60s bursts.'),
+  Exercise(name: 'Butt Kicks (Run-in-Place)', muscle: 'Cardio', description: 'Quick cadence; light landings.'),
+  Exercise(name: 'Sled March (Light, Long)', muscle: 'Cardio', description: 'Long continuous push.'),
+  Exercise(name: 'Bike Erg Time Trial (10 min)', muscle: 'Cardio', description: 'Max distance effort.'),
+  Exercise(name: 'Row Erg Time Trial (2k)', muscle: 'Cardio', description: 'Even pacing; negative split.'),
+  Exercise(name: 'Mixed Modality EMOM Cardio', muscle: 'Cardio', description: 'Rotate erg moves each minute.'),
+
+  // ===== Chest (25 more) =====
+  Exercise(name: 'Cable Flye (High Incline)', muscle: 'Chest', description: 'Benches at 30–45°; upper chest.'),
+  Exercise(name: 'Cable Flye (Decline Bench)', muscle: 'Chest', description: 'Lower chest; slow eccentric.'),
+  Exercise(name: 'One-Arm DB Floor Press', muscle: 'Chest', description: 'Anti-rotation; short ROM.'),
+  Exercise(name: 'Paused Dumbbell Bench', muscle: 'Chest', description: '1–2s pause on chest.'),
+  Exercise(name: 'Tempo Dumbbell Bench (4-0-1)', muscle: 'Chest', description: 'Long negative; drive up.'),
+  Exercise(name: 'Spoto DB Press', muscle: 'Chest', description: 'Stop above chest; tension.'),
+  Exercise(name: 'Feet-Up Bench Press', muscle: 'Chest', description: 'Flat back; chest isolation.'),
+  Exercise(name: 'Close-Grip DB Press', muscle: 'Chest', description: 'Narrow DB path; tris support.'),
+  Exercise(name: 'Machine Flye (Neutral Grip)', muscle: 'Chest', description: 'Neutral handles; squeeze.'),
+  Exercise(name: 'Machine Flye (Partial Bottoms)', muscle: 'Chest', description: 'Short ROM stretch reps.'),
+  Exercise(name: 'Band-Resisted Push-up', muscle: 'Chest', description: 'Band across back; lockout.'),
+  Exercise(name: 'Ring Turned-Out Push-up', muscle: 'Chest', description: 'External rotate rings; adduct.'),
+  Exercise(name: 'Archer Push-up on Rings', muscle: 'Chest', description: 'Side bias; stability.'),
+  Exercise(name: 'Decline DB Flye', muscle: 'Chest', description: 'Lower chest stretch.'),
+  Exercise(name: 'Incline Hex Press', muscle: 'Chest', description: 'DB squeeze on incline.'),
+  Exercise(name: 'Smith Machine Close-Grip Press', muscle: 'Chest', description: 'Triceps and inner pecs.'),
+  Exercise(name: 'Pin Press (Chest Height)', muscle: 'Chest', description: 'Dead-stop; power off chest.'),
+  Exercise(name: 'Board Press (2-Board)', muscle: 'Chest', description: 'Reduced ROM; triceps bias.'),
+  Exercise(name: 'Dumbbell Flye (Arcs to Hip)', muscle: 'Chest', description: 'Slight hipward path.'),
+  Exercise(name: 'Cable Press (Split Stance)', muscle: 'Chest', description: 'Stable base; punch forward.'),
+  Exercise(name: 'Push-up (Med Ball Hands)', muscle: 'Chest', description: 'Narrow unstable base.'),
+  Exercise(name: 'Push-up (Ring Feet Elevated)', muscle: 'Chest', description: 'Increased difficulty.'),
+  Exercise(name: 'Push-up (Tempo 5s Down)', muscle: 'Chest', description: 'Long eccentric; strict form.'),
+  Exercise(name: 'Isometric Flye Hold', muscle: 'Chest', description: 'Hold mid-range; tension.'),
+  Exercise(name: 'Cable Iron Cross', muscle: 'Chest', description: 'Arms out; adduction under load.'),
+
+  // ===== Back (25 more) =====
+  Exercise(name: 'Lat Pulldown (One-Arm Kneeling)', muscle: 'Back', description: 'Unilateral lat drive.'),
+  Exercise(name: 'Half-Kneeling Single-Arm Pulldown', muscle: 'Back', description: 'Hip-to-rib line; lats.'),
+  Exercise(name: 'Standing Pulldown (Rope)', muscle: 'Back', description: 'Arms straight; sweep.'),
+  Exercise(name: 'Chest-Supported Meadows Row', muscle: 'Back', description: 'Landmine; chest on bench.'),
+  Exercise(name: 'Landmine Single-Arm Row', muscle: 'Back', description: 'Hip hinge; pull to hip.'),
+  Exercise(name: 'Cable High Row (Overhand)', muscle: 'Back', description: 'Elbows out; mid traps.'),
+  Exercise(name: 'Cable Low Row (Neutral)', muscle: 'Back', description: 'Elbows tucked; lats.'),
+  Exercise(name: 'Dual Handle Pullover', muscle: 'Back', description: 'Independent handles; arc.'),
+  Exercise(name: 'Prone Row to External Rotation', muscle: 'Back', description: 'Scap set + ER.'),
+  Exercise(name: 'Chest-Supported Rear Delt Row (Kettlebell)', muscle: 'Back', description: 'KB path; elbows wide.'),
+  Exercise(name: 'Barbell Row (Paused on Floor)', muscle: 'Back', description: 'Dead-stop each rep.'),
+  Exercise(name: 'Row from Blocks', muscle: 'Back', description: 'Bar elevated; hinge set.'),
+  Exercise(name: 'Banded RDL', muscle: 'Back', description: 'Band tension; hinge pattern.'),
+  Exercise(name: 'Reverse Hyper (Paused)', muscle: 'Back', description: 'Hold at top; glutes.'),
+  Exercise(name: 'Back Extension (Banded)', muscle: 'Back', description: 'Band over neck; controlled.'),
+  Exercise(name: 'Shrug (Trap Bar)', muscle: 'Back', description: 'Neutral grip; heavy holds.'),
+  Exercise(name: 'Snatch-Grip Shrug', muscle: 'Back', description: 'Wide grip; upper traps.'),
+  Exercise(name: 'Scapular Pull-Up (Weighted)', muscle: 'Back', description: 'Short ROM; depression.'),
+  Exercise(name: 'Negative Chin-Up (10s)', muscle: 'Back', description: 'Very slow eccentric.'),
+  Exercise(name: 'Mixed-Grip Rack Pull', muscle: 'Back', description: 'Above knee; lockout.'),
+  Exercise(name: 'Deficit Good Morning', muscle: 'Back', description: 'Stand on plate; hinge deep.'),
+  Exercise(name: 'Cambered Bar Good Morning', muscle: 'Back', description: 'Lower back comfort; hinge.'),
+  Exercise(name: 'Face Pull (Seated)', muscle: 'Back', description: 'Strict torso; rope to brow.'),
+  Exercise(name: 'Cable Reverse Flye (Incline)', muscle: 'Back', description: 'Chest on bench; rear delts.'),
+  Exercise(name: 'Band Lat Prayer', muscle: 'Back', description: 'Tall kneel; sweep to thighs.'),
 ];
+
 
 String _genId() => DateTime.now().microsecondsSinceEpoch.toString();
 
@@ -293,6 +979,10 @@ class AppState extends ChangeNotifier {
   static const _kWorkoutLogs = 'workout_logs_json';
   static const _kPRs = 'prs_json';
   static const _kDataVersion = 'data_version';
+
+  // Naruto affiliation
+  String? selectedVillage;
+  String? selectedClan;
 
   ThemeMode themeMode = ThemeMode.system;
 
@@ -860,6 +1550,209 @@ class AppState extends ChangeNotifier {
   }
 }
 
+// =====================================================
+// === PART 1: Naruto Data, Rank System & User Stats ===
+// =====================================================
+
+/// ----------------------
+///  Naruto Villages / Clans
+/// ----------------------
+class NarutoData {
+  static const List<String> villages = [
+    'Hidden Leaf (Konoha)',
+    'Hidden Sand (Suna)',
+    'Hidden Mist (Kiri)',
+    'Hidden Cloud (Kumo)',
+    'Hidden Stone (Iwa)',
+    'Hidden Rain (Ame)',
+    'Hidden Grass (Kusa)',
+    'Hidden Waterfall (Taki)',
+    'Hidden Sound (Oto)',
+    'Hidden Frost (Yuki)',
+    'Hidden Moon (Getsu)',
+    'Hidden Eddy (Uzu)',
+    'Hidden Star (Hoshi)',
+    'Hidden Sky (Sora)',
+    'Hidden Snow (Yuki)',
+  ];
+
+  static const List<String> clans = [
+    // Konoha clans
+    'Uchiha',
+    'Hyuga',
+    'Nara',
+    'Akimichi',
+    'Yamanaka',
+    'Aburame',
+    'Inuzuka',
+    'Sarutobi',
+    'Senju',
+    'Uzumaki',
+    'Hatake',
+    'Shimura',
+    'Kurama',
+    // Other villages
+    'Kazekage',
+    'Hozuki',
+    'Kaguya',
+    'Momochi',
+    'Fuma',
+    'Kamizuru',
+    'Lee',
+    // Organizations and groups
+    'Anbu',
+    'Root',
+    'Akatsuki',
+    'Seven Swordsmen',
+    'Sound Four',
+    'Kara',
+    'Otsutsuki',
+    'S-rank Rogue Nin',
+  ];
+}
+
+/// ----------------------
+///  Rank progression
+/// ----------------------
+class NarutoRank {
+  final String name;
+  final int requiredWorkouts;
+  final String? icon; // optional emoji or asset
+
+  const NarutoRank(this.name, this.requiredWorkouts, {this.icon});
+}
+
+const List<NarutoRank> kNarutoRanks = [
+  NarutoRank('Academy Student', 0, icon: '🎓'),
+  NarutoRank('Genin', 50, icon: '🥋'),
+  NarutoRank('Chunin', 120, icon: '⚔️'),
+  NarutoRank('Jounin', 220, icon: '🗡️'),
+  NarutoRank('ANBU', 350, icon: '🐺'),
+  NarutoRank('Sannin', 500, icon: '🐍'),
+  NarutoRank('Kage', 650, icon: '👑'),
+  NarutoRank('S-Rank (Legendary)', 800, icon: '🔥'),
+];
+
+/// ----------------------
+///  Simple statistics DTO
+/// ----------------------
+class UserStats {
+  final int workouts;
+  final int durationSeconds;
+  final double totalWeight;
+
+  const UserStats({
+    required this.workouts,
+    required this.durationSeconds,
+    required this.totalWeight,
+  });
+
+  Duration get duration => Duration(seconds: durationSeconds);
+}
+
+/// -----------------------------------------------------
+///  Stats & Naruto logic — integrate with AppState below
+/// -----------------------------------------------------
+
+extension AppStateStats on AppState {
+  // -------------------- Basic statistics --------------------
+
+  int get workoutCount => sessions.length;
+
+  double get totalWeightLifted {
+    double total = 0;
+    for (final s in sessions) {
+      for (final set in s.sets) {
+        if (set.weightKg != null) total += set.weightKg! * set.reps;
+      }
+    }
+    return total;
+  }
+
+  int get totalDurationSeconds =>
+      sessions.fold<int>(0, (acc, s) => acc + (s.durationSeconds ?? 0));
+
+  UserStats get allTimeStats => UserStats(
+    workouts: workoutCount,
+    durationSeconds: totalDurationSeconds,
+    totalWeight: totalWeightLifted,
+  );
+
+  UserStats get thisYearStats {
+    final now = DateTime.now();
+    final yearSessions =
+    sessions.where((s) => s.startedAt.year == now.year).toList();
+    final workouts = yearSessions.length;
+    final dur =
+    yearSessions.fold<int>(0, (acc, s) => acc + (s.durationSeconds ?? 0));
+    double totalW = 0;
+    for (final s in yearSessions) {
+      for (final set in s.sets) {
+        if (set.weightKg != null) totalW += set.weightKg! * set.reps;
+      }
+    }
+    return UserStats(
+      workouts: workouts,
+      durationSeconds: dur,
+      totalWeight: totalW,
+    );
+  }
+
+  // -------------------- Rank logic --------------------
+
+  NarutoRank get currentRank {
+    final count = workoutCount;
+    NarutoRank current = kNarutoRanks.first;
+    for (final r in kNarutoRanks) {
+      if (count >= r.requiredWorkouts) current = r;
+    }
+    return current;
+  }
+
+  NarutoRank? get nextRank {
+    final count = workoutCount;
+    for (final r in kNarutoRanks) {
+      if (r.requiredWorkouts > count) return r;
+    }
+    return null;
+  }
+
+  int get workoutsUntilNextRank {
+    final next = this.nextRank;
+    if (next == null) return 0;
+    return (next.requiredWorkouts - workoutCount).clamp(0, 9999);
+  }
+
+  // -------------------- Clan / Village save-load --------------------
+
+  Future<void> saveNarutoAffiliation({
+    String? village,
+    String? clan,
+  }) async {
+    if (village != null) selectedVillage = village;
+    if (clan != null) selectedClan = clan;
+    await _prefs.setString(
+      'naruto_affiliation',
+      jsonEncode({
+        'village': selectedVillage,
+        'clan': selectedClan,
+      }),
+    );
+    notifyListeners();
+  }
+
+  Future<void> loadNarutoAffiliation() async {
+    final raw = _prefs.getString('naruto_affiliation');
+    if (raw == null) return;
+    try {
+      final map = jsonDecode(raw) as Map<String, dynamic>;
+      selectedVillage = map['village'];
+      selectedClan = map['clan'];
+    } catch (_) {}
+  }
+}
+
+
 /// ---------- Inherited scope ----------
 class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState state, required Widget child})
@@ -1054,6 +1947,7 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+
 class _SettingsScreenState extends State<SettingsScreen> {
   final _heightCtrl = TextEditingController();
   final _weightCtrl = TextEditingController();
@@ -1081,6 +1975,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -1090,69 +1985,89 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 8),
         SegmentedButton<ThemeMode>(
           segments: const [
-            ButtonSegment(value: ThemeMode.system, label: Text('Follow System')),
+            ButtonSegment(value: ThemeMode.system, label: Text('System')),
             ButtonSegment(value: ThemeMode.light, label: Text('Light')),
             ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
           ],
           selected: {state.themeMode},
           onSelectionChanged: (set) => state.setTheme(set.first),
         ),
-        const SizedBox(height: 12),
-        const Text('Primary color', style: TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 16),
+
+        const Text('Primary Color',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Wrap(
-          spacing: 10, runSpacing: 10,
+          spacing: 10,
+          runSpacing: 10,
           children: [
             for (final c in [
-              AppTheme.crimson, Colors.blue, Colors.teal, Colors.amber, Colors.purple, Colors.green, Colors.orange
+              AppTheme.crimson,
+              Colors.blue,
+              Colors.teal,
+              Colors.amber,
+              Colors.purple,
+              Colors.green,
+              Colors.orange
             ])
               GestureDetector(
-                onTap: () => AppScope.of(context).setPrimaryColor(c),
+                onTap: () => state.setPrimaryColor(c),
                 child: Container(
-                  width: 32, height: 32,
+                  width: 32,
+                  height: 32,
                   decoration: BoxDecoration(
                     color: c,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: state.primaryColor.value == c.value ? Colors.black : Colors.transparent,
+                      color: state.primaryColor.value == c.value
+                          ? Colors.black
+                          : Colors.transparent,
                       width: 2,
                     ),
                   ),
                 ),
               ),
             TextButton.icon(
-              onPressed: () => AppScope.of(context).resetPrimaryColorToPrevious(),
+              onPressed: () => state.resetPrimaryColorToPrevious(),
               icon: const Icon(Icons.restore),
               label: const Text('Reset'),
             ),
           ],
         ),
         const SizedBox(height: 24),
+
         const Text('Profile',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         TextField(
           controller: _heightCtrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Height (cm)', hintText: 'e.g. 172.5'),
-          onChanged: (v) => state.saveHeight(double.tryParse(v.replaceAll(',', '.'))),
+          keyboardType:
+          const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Height (cm)'),
+          onChanged: (v) =>
+              state.saveHeight(double.tryParse(v.replaceAll(',', '.'))),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _weightCtrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(labelText: 'Weight (kg)', hintText: 'e.g. 73.5'),
-          onChanged: (v) => state.saveWeight(double.tryParse(v.replaceAll(',', '.'))),
+          keyboardType:
+          const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(labelText: 'Weight (kg)'),
+          onChanged: (v) =>
+              state.saveWeight(double.tryParse(v.replaceAll(',', '.'))),
         ),
         const SizedBox(height: 8),
         ElevatedButton.icon(
           icon: const Icon(Icons.update),
-          label: const Text('Update current weight (logs to progress)'),
+          label: const Text('Update current weight (logs progress)'),
           onPressed: () {
-            final v = double.tryParse(_weightCtrl.text.replaceAll(',', '.'));
+            final v =
+            double.tryParse(_weightCtrl.text.replaceAll(',', '.'));
             if (v != null) {
-              AppScope.of(context).logWeightNow(v);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Weight updated and logged.')));
+              state.logWeightNow(v);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Weight updated and logged.')),
+              );
             }
           },
         ),
@@ -1176,7 +2091,146 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 24),
+
+        // ------------- Naruto affiliation section -------------
+        const Text('Village & Clan',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: state.selectedVillage,
+          hint: const Text('Select Village'),
+          items: NarutoData.villages
+              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+              .toList(),
+          onChanged: (v) async {
+            await state.saveNarutoAffiliation(village: v);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: state.selectedClan,
+          hint: const Text('Select Clan'),
+          items: NarutoData.clans
+              .map((v) => DropdownMenuItem(value: v, child: Text(v)))
+              .toList(),
+          onChanged: (v) async {
+            await state.saveNarutoAffiliation(clan: v);
+            setState(() {});
+          },
+        ),
+        const SizedBox(height: 16),
+        Card(
+          color: cs.primary.withOpacity(.08),
+          child: ListTile(
+            leading:
+            Text(state.currentRank.icon ?? '🎓', style: const TextStyle(fontSize: 24)),
+            title: Text(state.currentRank.name,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: state.nextRank == null
+                ? const Text('Max rank achieved')
+                : Text(
+                '${state.workoutsUntilNextRank} workouts to ${state.nextRank!.name}'),
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // ------------- Statistics navigation -------------
+        FilledButton.icon(
+          icon: const Icon(Icons.bar_chart),
+          label: const Text('Open Statistics'),
+          onPressed: () {
+            Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const StatisticsPage()));
+          },
+        ),
       ],
+    );
+  }
+}
+
+// ------------------------------------------------------
+// Statistics Page
+// ------------------------------------------------------
+class StatisticsPage extends StatelessWidget {
+  const StatisticsPage({super.key});
+
+  String _fmtDur(int secs) {
+    final d = Duration(seconds: secs);
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h h $m m' : '$m m';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final year = state.thisYearStats;
+    final all = state.allTimeStats;
+    final prList = state.prs.entries.toList();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Statistics')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('This Year',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                    title: const Text('Workouts'),
+                    trailing: Text('${year.workouts}')),
+                ListTile(
+                    title: const Text('Duration'),
+                    trailing: Text(_fmtDur(year.durationSeconds))),
+                ListTile(
+                    title: const Text('Weight Lifted'),
+                    trailing:
+                    Text('${year.totalWeight.toStringAsFixed(0)} kg')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('All Time',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                    title: const Text('Workouts'),
+                    trailing: Text('${all.workouts}')),
+                ListTile(
+                    title: const Text('Duration'),
+                    trailing: Text(_fmtDur(all.durationSeconds))),
+                ListTile(
+                    title: const Text('Weight Lifted'),
+                    trailing:
+                    Text('${all.totalWeight.toStringAsFixed(0)} kg')),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Text('Best Lifts (PRs)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Card(
+            child: Column(
+              children: prList.isEmpty
+                  ? [const ListTile(title: Text('No PR data yet'))]
+                  : prList.map((e) {
+                final pr = e.value;
+                return ListTile(
+                  title: Text(e.key),
+                  subtitle: Text(
+                      'Max Weight: ${pr.maxWeightKg?.toStringAsFixed(1) ?? '—'} kg  •  Max Reps: ${pr.maxReps}'),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1492,6 +2546,13 @@ class ActiveWorkoutPage extends StatefulWidget {
 }
 
 class _ActiveWorkoutPageState extends State<ActiveWorkoutPage> {
+  String _fmt(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+
   void _showAddExerciseSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -1509,13 +2570,6 @@ class _ActiveWorkoutPageState extends State<ActiveWorkoutPage> {
     );
   }
 
-  String _fmt(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
@@ -1528,46 +2582,132 @@ class _ActiveWorkoutPageState extends State<ActiveWorkoutPage> {
       );
     }
 
+    // --- compute summary ---
+    int totalSets = 0;
+    double totalWeight = 0;
+    for (final e in active.entries) {
+      totalSets += e.logs.length;
+      for (final l in e.logs) {
+        if (l.weightKg != null) totalWeight += l.weightKg! * l.reps;
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: AnimatedBuilder(
           animation: state,
-          builder: (_, __) => Text('Workout • ${_fmt(state.activeElapsed)}'),
+          builder: (_, __) =>
+              Text('Workout • ${_fmt(state.activeElapsed)}'),
         ),
         actions: [
           IconButton(
             tooltip: 'Add exercise',
-            onPressed: () => _showAddExerciseSheet(context),
             icon: const Icon(Icons.add),
+            onPressed: () => _showAddExerciseSheet(context),
           ),
           IconButton(
             tooltip: 'End & Save',
+            icon: const Icon(Icons.stop_circle_outlined),
             onPressed: () async {
-              final s = await state.endActiveWorkoutAndSave();
+              final proposed = state.proposeUpdatedPlanFromActive();
+              final session = await state.endActiveWorkoutAndSave();
               if (!mounted) return;
-              if (s != null) {
+
+              // ask to update defaults if user changed sets/exercises
+              if (proposed != null) {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text('Apply workout changes?'),
+                    content: const Text(
+                        'You added/edited exercises or sets.\n'
+                            'Do you want to update your saved plan defaults?'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('No')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Yes, update')),
+                    ],
+                  ),
+                );
+                if (ok == true) {
+                  await state.updatePlanById(proposed.id, proposed);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Plan updated successfully.')),
+                  );
+                }
+              }
+
+              if (session != null) {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (_) => WorkoutSummaryPage(session: s)),
+                  MaterialPageRoute(
+                      builder: (_) => WorkoutSummaryPage(session: session)),
                 );
               }
             },
-            icon: const Icon(Icons.stop_circle_outlined),
           ),
         ],
       ),
+
+      // --- Body ---
       body: AnimatedBuilder(
         animation: state,
-        builder: (context, _) => ListView.separated(
+        builder: (context, _) => ListView(
           padding: const EdgeInsets.all(16),
-          itemCount: active.entries.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (_, i) {
-            final entry = active.entries[i];
-            return _ExerciseCard(entryIndex: i, entry: entry);
-          },
+          children: [
+            // --- summary card ---
+            Card(
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withOpacity(0.07),
+              child: Padding(
+                padding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _summaryStat('⏱ Duration', _fmt(state.activeElapsed)),
+                    _summaryStat('🏋️ Volume',
+                        '${totalWeight.toStringAsFixed(0)} kg'),
+                    _summaryStat('🔢 Sets', '$totalSets'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // --- exercise cards ---
+            ...List.generate(active.entries.length, (i) {
+              final entry = active.entries[i];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _ExerciseCard(entryIndex: i, entry: entry),
+              );
+            }),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _summaryStat(String label, String value) {
+    return Column(
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontWeight: FontWeight.w600, color: Colors.black54)),
+        const SizedBox(height: 4),
+        Text(value,
+            style:
+            const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 }
@@ -2529,12 +3669,9 @@ class ExerciseDetailPage extends StatelessWidget {
 
   Exercise? _findByName(BuildContext context) {
     final state = AppScope.of(context);
-    final list = [
-      ...builtInExercises(),
-      ...state.customExercises
-    ];
+    final all = [...builtInExercises(), ...state.customExercises];
     try {
-      return list.firstWhere((e) => e.name == name);
+      return all.firstWhere((e) => e.name == name);
     } catch (_) {
       return Exercise(name: name, muscle: 'Other', description: null);
     }
@@ -2542,26 +3679,150 @@ class ExerciseDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final state = AppScope.of(context);
     final ex = _findByName(context);
-    final pr = AppScope.of(context).prs[name];
+    final pr = state.prs[name];
+
+    // collect PR progress points from all sessions (sorted by date)
+    final data = <(DateTime, double)>[];
+    for (final s in state.sessions) {
+      double best = 0;
+      for (final set in s.sets.where((x) => x.exercise == name)) {
+        if (set.weightKg != null) best = math.max(best, set.weightKg!);
+      }
+      if (best > 0) data.add((s.startedAt, best));
+    }
+    data.sort((a, b) => a.$1.compareTo(b.$1));
+
     return Scaffold(
       appBar: AppBar(title: Text(ex?.name ?? name)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
-            ListTile(leading: const Icon(Icons.fitness_center), title: const Text('Muscle group'), subtitle: Text(ex?.muscle ?? '—')),
-            if (pr != null) ListTile(leading: const Icon(Icons.stars_outlined), title: const Text('Your PRs'),
-                subtitle: Text('${pr.maxWeightKg != null ? 'Max Weight: ${pr!.maxWeightKg}kg' : 'Max Weight: —'} • Max Reps: ${pr.maxReps > 0 ? pr.maxReps : '—'}')),
+            ListTile(
+              leading: const Icon(Icons.fitness_center),
+              title: const Text('Muscle group'),
+              subtitle: Text(ex?.muscle ?? '—'),
+            ),
+            if (pr != null)
+              ListTile(
+                leading: const Icon(Icons.stars_outlined),
+                title: const Text('Your PRs'),
+                subtitle: Text(
+                    'Max Weight: ${pr.maxWeightKg?.toStringAsFixed(1) ?? '—'} kg  •  Max Reps: ${pr.maxReps > 0 ? pr.maxReps : '—'}'),
+              ),
             const SizedBox(height: 8),
-            const Text('Description', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Text(ex?.description?.isNotEmpty == true ? ex!.description! : 'No description available yet.'),
+            const Text('Description',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(ex?.description?.isNotEmpty == true
+                ? ex!.description!
+                : 'No description available.'),
+
+            const SizedBox(height: 20),
+            const Text('PR Progress (All Time)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 240,
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: data.length < 2
+                      ? const Center(child: Text('Not enough PR data yet.'))
+                      : CustomPaint(
+                    painter: _PRChartPainter(data),
+                    child: Container(),
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+}
+
+class _PRChartPainter extends CustomPainter {
+  final List<(DateTime, double)> data;
+  _PRChartPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final pad = 10.0;
+    final left = pad, right = size.width - pad, top = pad, bottom = size.height - pad;
+    final paintLine = Paint()
+      ..color = Colors.deepPurpleAccent
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final paintAxis = Paint()
+      ..color = Colors.grey
+      ..strokeWidth = 1;
+
+    // axes
+    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), paintAxis);
+    canvas.drawLine(Offset(left, top), Offset(left, bottom), paintAxis);
+
+    final minT = data.first.$1.millisecondsSinceEpoch.toDouble();
+    final maxT = data.last.$1.millisecondsSinceEpoch.toDouble();
+    final minY = data.map((e) => e.$2).reduce(math.min);
+    final maxY = data.map((e) => e.$2).reduce(math.max);
+    final spanT = (maxT - minT).clamp(1, double.infinity);
+    final spanY = (maxY - minY).abs() < 1e-6 ? 1.0 : (maxY - minY);
+
+    double xFor(DateTime t) =>
+        left + (right - left) * ((t.millisecondsSinceEpoch - minT) / spanT);
+    double yFor(double v) =>
+        bottom - (bottom - top) * ((v - minY) / spanY);
+
+    final path = Path();
+    for (int i = 0; i < data.length; i++) {
+      final x = xFor(data[i].$1);
+      final y = yFor(data[i].$2);
+      if (i == 0)
+        path.moveTo(x, y);
+      else
+        path.lineTo(x, y);
+    }
+    canvas.drawPath(path, paintLine);
+
+    // dots
+    final dot = Paint()..color = Colors.deepPurpleAccent;
+    for (final p in data) {
+      canvas.drawCircle(Offset(xFor(p.$1), yFor(p.$2)), 3, dot);
+    }
+
+    // axis labels
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    final minLabel = TextSpan(
+        text: '${minY.toStringAsFixed(0)} kg',
+        style: const TextStyle(fontSize: 10, color: Colors.grey));
+    final maxLabel = TextSpan(
+        text: '${maxY.toStringAsFixed(0)} kg',
+        style: const TextStyle(fontSize: 10, color: Colors.grey));
+    tp.text = minLabel;
+    tp.layout();
+    tp.paint(canvas, Offset(left + 2, bottom - tp.height));
+    tp.text = maxLabel;
+    tp.layout();
+    tp.paint(canvas, Offset(left + 2, top));
+
+    final dateLabel = TextPainter(
+        text: TextSpan(
+            text: 'Date',
+            style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        textDirection: TextDirection.ltr)
+      ..layout();
+    dateLabel.paint(canvas, Offset(right - dateLabel.width, bottom - 14));
+  }
+
+  @override
+  bool shouldRepaint(covariant _PRChartPainter oldDelegate) =>
+      oldDelegate.data != data;
 }
 
 /// ---------- Progress (Weight graph + History) ----------
@@ -2572,121 +3833,565 @@ class ProgressScreen extends StatefulWidget {
 }
 
 enum _Range { week, month, year, all }
+enum _GraphType { weight, duration, volume, workouts }
+enum _ProgressTab { overview, exercises, measures, photos }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  _Range _range = _Range.month;
-
-  List<WeightPoint> _filter(List<WeightPoint> src) {
-    if (src.isEmpty) return src;
-    final now = DateTime.now();
-    DateTime from;
-    switch (_range) {
-      case _Range.week:
-        from = now.subtract(const Duration(days: 7));
-        break;
-      case _Range.month:
-        from = DateTime(now.year, now.month - 1, now.day);
-        break;
-      case _Range.year:
-        from = DateTime(now.year - 1, now.month, now.day);
-        break;
-      case _Range.all:
-        return src;
-    }
-    return src.where((p) => !p.at.isBefore(from)).toList();
-  }
+  _GraphType _graph = _GraphType.weight;
+  _ProgressTab _tab = _ProgressTab.overview;
 
   @override
   Widget build(BuildContext context) {
     final state = AppScope.of(context);
-    final pts = _filter(state.weightHistory);
+    final cs = Theme.of(context).colorScheme;
+
+    // ------------- Top navigation bar -------------
+    Widget navBar() {
+      return SegmentedButton<_ProgressTab>(
+        segments: const [
+          ButtonSegment(value: _ProgressTab.overview, label: Text('Overview')),
+          ButtonSegment(value: _ProgressTab.exercises, label: Text('Exercises')),
+          ButtonSegment(value: _ProgressTab.measures, label: Text('Measures')),
+          ButtonSegment(value: _ProgressTab.photos, label: Text('Photos')),
+        ],
+        selected: {_tab},
+        onSelectionChanged: (s) => setState(() => _tab = s.first),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text('Weight Progress', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        SegmentedButton<_Range>(
-          segments: const [
-            ButtonSegment(value: _Range.week, label: Text('Week')),
-            ButtonSegment(value: _Range.month, label: Text('Month')),
-            ButtonSegment(value: _Range.year, label: Text('Year')),
-            ButtonSegment(value: _Range.all, label: Text('All')),
-          ],
-          selected: {_range},
-          onSelectionChanged: (s) => setState(() => _range = s.first),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 220,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: pts.length < 2
-                  ? const Center(child: Text('Not enough data yet. Update your weight in Settings.'))
-                  : CustomPaint(
-                painter: _WeightChartPainter(pts),
-                child: Container(),
-              ),
-            ),
-          ),
-        ),
+        navBar(),
         const SizedBox(height: 16),
-        const Text('Workout History', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...List.generate(state.sessions.length, (i) {
-          final s = state.sessions[i];
-          final startedLocal = s.startedAt.toLocal().toString().split(".").first;
-          final title = 'Workout on $startedLocal';
-          return Card(
-            child: ListTile(
-              title: Text(title),
-              subtitle: Text('Sets: ${s.sets.length} • Duration: ${_fmtDur(s.durationSeconds)}'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete_forever_outlined),
-                onPressed: () async {
-                  final ok = await showDialog<bool>(
-                    context: context,
-                    builder: (_) => AlertDialog(
-                      title: const Text('Delete workout?'),
-                      content: const Text('This will remove the workout from your history.'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-                        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
-                      ],
-                    ),
-                  );
-                  if (ok == true) {
-                    await state.removeSessionAt(i);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context)
-                          .showSnackBar(const SnackBar(content: Text('Workout deleted.')));
-                    }
-                  }
-                },
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => WorkoutSummaryPage(session: s)),
-                );
-              },
-            ),
-          );
-        }),
+        if (_tab == _ProgressTab.overview) _overviewTab(state, cs),
+        if (_tab == _ProgressTab.exercises) _exercisesTab(state),
+        if (_tab == _ProgressTab.measures) _measuresTab(state, cs),
+        if (_tab == _ProgressTab.photos) _photosTab(state, cs),
       ],
     );
   }
 
-  String _fmtDur(int? secs) {
-    if (secs == null) return '-';
+  // --------------------------------------------------
+  // Overview tab
+  // --------------------------------------------------
+  Widget _overviewTab(AppState state, ColorScheme cs) {
+    final weightPts = state.weightHistory;
+    final yearStats = state.thisYearStats;
+    final allStats = state.allTimeStats;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Progress Overview',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+
+        // ---------------- Graph + switcher ----------------
+        SizedBox(
+          height: 240,
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: _buildGraph(state),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        // Graph switch buttons
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _graphBtn(Icons.access_time, 'Duration', _GraphType.duration),
+            _graphBtn(Icons.fitness_center, 'Volume', _GraphType.volume),
+            _graphBtn(Icons.event_note, 'Workouts', _GraphType.workouts),
+            _graphBtn(Icons.monitor_weight, 'Weight', _GraphType.weight),
+          ],
+        ),
+        const SizedBox(height: 20),
+
+        // ---------------- Yearly / All time stats ----------------
+        const Text('This Year', style: TextStyle(fontWeight: FontWeight.bold)),
+        Card(
+          child: ListTile(
+            title: const Text('Workouts'),
+            trailing: Text('${yearStats.workouts}'),
+            subtitle: Text(
+                'Duration: ${_fmtDur(yearStats.durationSeconds)} • Weight lifted: ${yearStats.totalWeight.toStringAsFixed(0)} kg'),
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text('All Time', style: TextStyle(fontWeight: FontWeight.bold)),
+        Card(
+          child: ListTile(
+            title: const Text('Workouts'),
+            trailing: Text('${allStats.workouts}'),
+            subtitle: Text(
+                'Duration: ${_fmtDur(allStats.durationSeconds)} • Weight lifted: ${allStats.totalWeight.toStringAsFixed(0)} kg'),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // ---------------- Rank display ----------------
+        _rankSection(state, cs),
+
+        const SizedBox(height: 24),
+        // ---------------- Radar chart + weekly muscle list ----------------
+        const Text('Muscle Focus This Month',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        _muscleRadarChart(state),
+        const SizedBox(height: 16),
+        const Text('Muscle Groups Hit This Week',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 6),
+        _muscleList(state),
+      ],
+    );
+  }
+
+  // --------------------------------------------------
+  // Graph painter + buttons
+  // --------------------------------------------------
+  Widget _graphBtn(IconData icon, String label, _GraphType type) {
+    final selected = _graph == type;
+    return ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        minimumSize: const Size(100, 36),
+        backgroundColor:
+        selected ? null : Colors.grey.withOpacity(0.2),
+      ),
+      onPressed: () => setState(() => _graph = type),
+      icon: Icon(icon, size: 18),
+      label: Text(label),
+    );
+  }
+
+  Widget _buildGraph(AppState state) {
+    final pts = state.weightHistory;
+    if (pts.length < 2) {
+      return const Center(child: Text('Not enough data yet.'));
+    }
+
+    // pick numeric Y values based on graph type
+    List<double> yVals;
+    switch (_graph) {
+      case _GraphType.weight:
+        yVals = pts.map((e) => e.kg).toList();
+        break;
+      case _GraphType.duration:
+        yVals = state.sessions.map((s) => (s.durationSeconds ?? 0) / 60).toList();
+        break;
+      case _GraphType.volume:
+        yVals = state.sessions.map((s) {
+          double total = 0;
+          for (final set in s.sets) {
+            if (set.weightKg != null) total += set.weightKg! * set.reps;
+          }
+          return total;
+        }).toList();
+        break;
+      case _GraphType.workouts:
+        yVals = List.generate(state.sessions.length, (i) => i + 1.0);
+        break;
+    }
+
+    return CustomPaint(
+      painter: _SimpleLinePainter(yVals, label: _graph.name),
+      child: Container(),
+    );
+  }
+
+  // --------------------------------------------------
+  // Rank section
+  // --------------------------------------------------
+  Widget _rankSection(AppState state, ColorScheme cs) {
+    final rank = state.currentRank;
+    final next = state.nextRank;
+    final left = state.workoutsUntilNextRank;
+
+    return Card(
+      color: cs.primary.withOpacity(.08),
+      child: ListTile(
+        leading: Text(rank.icon ?? '🎓', style: const TextStyle(fontSize: 24)),
+        title: Text('${rank.name}',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: next == null
+            ? const Text('You reached the top rank!')
+            : Text('Next: ${next.name}  •  $left workouts left'),
+      ),
+    );
+  }
+
+  // --------------------------------------------------
+  // Radar chart and weekly list
+  // --------------------------------------------------
+  Widget _muscleRadarChart(AppState state) {
+    // All muscles (always show full radar)
+    const allMuscles = [
+      'Chest',
+      'Back',
+      'Legs',
+      'Shoulders',
+      'Arms',
+      'Core',
+      'Full Body',
+      'Cardio',
+      'Other',
+    ];
+
+    final now = DateTime.now();
+    final monthSessions = state.sessions
+        .where((s) =>
+    s.startedAt.year == now.year && s.startedAt.month == now.month)
+        .toList();
+
+    final counter = <String, int>{for (final m in allMuscles) m: 0};
+
+    for (final s in monthSessions) {
+      for (final set in s.sets) {
+        final ex = [...builtInExercises(), ...state.customExercises]
+            .firstWhere((e) => e.name == set.exercise,
+            orElse: () => Exercise(name: set.exercise, muscle: 'Other'));
+        counter[ex.muscle] = (counter[ex.muscle] ?? 0) + 1;
+      }
+    }
+
+    if (counter.values.every((v) => v == 0)) {
+      counter['Chest'] = 1; // avoid empty radar
+    }
+
+    // Force a square shape for the radar chart
+    final width = MediaQuery.of(context).size.width - 48; // some padding
+
+    return Center(
+      child: SizedBox(
+        width: width,
+        height: width, // make it square
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: CustomPaint(
+              size: Size.square(width - 24),
+              painter: _RadarPainter(counter),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _muscleList(AppState state) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final weekSessions =
+    state.sessions.where((s) => s.startedAt.isAfter(weekAgo)).toList();
+    final groups = <String>{};
+    for (final s in weekSessions) {
+      for (final set in s.sets) {
+        final ex = [...builtInExercises(), ...state.customExercises]
+            .firstWhere((e) => e.name == set.exercise,
+            orElse: () => Exercise(name: set.exercise, muscle: 'Other'));
+        groups.add(ex.muscle);
+      }
+    }
+    if (groups.isEmpty) return const Text('No workouts this week.');
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: groups.map((m) => Chip(label: Text(m))).toList(),
+    );
+  }
+
+  // --------------------------------------------------
+  // Exercises tab
+  // --------------------------------------------------
+  Widget _exercisesTab(AppState state) {
+    final now = DateTime.now();
+    final monthSessions =
+    state.sessions.where((s) => s.startedAt.month == now.month).toList();
+    final recent = <String, double>{};
+
+    for (final s in monthSessions) {
+      for (final set in s.sets) {
+        if (set.weightKg != null) {
+          final w = set.weightKg!;
+          recent[set.exercise] = math.max(recent[set.exercise] ?? 0, w);
+        }
+      }
+    }
+
+    if (recent.isEmpty) {
+      return const Center(child: Text('No exercises logged this month.'));
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: recent.entries.map((e) {
+        return Card(
+          child: ListTile(
+            title: Text(e.key),
+            subtitle: Text('PR: ${e.value.toStringAsFixed(1)} kg'),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  // --------------------------------------------------
+  // Measures tab
+  // --------------------------------------------------
+  Widget _measuresTab(AppState state, ColorScheme cs) {
+    final parts = [
+      'Left Arm',
+      'Right Arm',
+      'Chest',
+      'Waist',
+      'Hips',
+      'Left Thigh',
+      'Right Thigh',
+      'Left Calf',
+      'Right Calf',
+      'Neck',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Body Measurements',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: parts.map((p) {
+            return OutlinedButton(
+              onPressed: () async {
+                final ctrl = TextEditingController();
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: Text('Enter $p measurement (cm)'),
+                    content: TextField(
+                      controller: ctrl,
+                      keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(hintText: 'e.g. 34.5'),
+                    ),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('Cancel')),
+                      FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('Save')),
+                    ],
+                  ),
+                );
+                if (ok == true && ctrl.text.isNotEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$p saved: ${ctrl.text} cm')),
+                  );
+                }
+              },
+              child: Text(p),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // --------------------------------------------------
+  // Photos tab
+  // --------------------------------------------------
+  Widget _photosTab(AppState state, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Progress Photos',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: () async {
+            final wCtrl = TextEditingController();
+            final hCtrl = TextEditingController();
+            String? mode = 'Maintaining';
+            final ok = await showDialog<bool>(
+              context: context,
+              builder: (_) => AlertDialog(
+                title: const Text('Upload Progress Photo'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Select image and enter details'),
+                    const SizedBox(height: 8),
+                    TextField(
+                        controller: wCtrl,
+                        decoration:
+                        const InputDecoration(labelText: 'Weight (kg)')),
+                    const SizedBox(height: 8),
+                    TextField(
+                        controller: hCtrl,
+                        decoration:
+                        const InputDecoration(labelText: 'Height (cm)')),
+                    const SizedBox(height: 8),
+                    DropdownButton<String>(
+                      value: mode,
+                      onChanged: (v) => mode = v,
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Bulking', child: Text('Bulking')),
+                        DropdownMenuItem(
+                            value: 'Cutting', child: Text('Cutting')),
+                        DropdownMenuItem(
+                            value: 'Maintaining', child: Text('Maintaining')),
+                      ],
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Save')),
+                ],
+              ),
+            );
+            if (ok == true) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Photo saved (mock, not yet stored).')));
+            }
+          },
+          icon: const Icon(Icons.photo_camera),
+          label: const Text('Upload Progress Photo'),
+        ),
+        const SizedBox(height: 12),
+        const Text('Uploaded photos will appear here (future feature).'),
+      ],
+    );
+  }
+
+  // --------------------------------------------------
+  // Utilities
+  // --------------------------------------------------
+  String _fmtDur(int secs) {
     final d = Duration(seconds: secs);
     final h = d.inHours;
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return h > 0 ? '$h:$m:$s' : '$m:$s';
+    return h > 0 ? '$h h $m m' : '$m m';
   }
 }
+
+// ------------------------------------------------------
+// Simple graph painter
+// ------------------------------------------------------
+class _SimpleLinePainter extends CustomPainter {
+  final List<double> values;
+  final String label;
+  _SimpleLinePainter(this.values, {required this.label});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paintLine =
+    Paint()..color = Colors.blueAccent..strokeWidth = 2..style = PaintingStyle.stroke;
+    final paintAxis =
+    Paint()..color = Colors.grey..strokeWidth = 1;
+    final pad = 8.0;
+    final left = pad, right = size.width - pad, top = pad, bottom = size.height - pad;
+
+    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), paintAxis);
+    canvas.drawLine(Offset(left, top), Offset(left, bottom), paintAxis);
+
+    final minY = values.reduce(math.min);
+    final maxY = values.reduce(math.max);
+    final spanY = (maxY - minY).abs() < 1e-6 ? 1.0 : (maxY - minY);
+
+    double xFor(int i) => left + (right - left) * (i / (values.length - 1));
+    double yFor(double v) => bottom - (bottom - top) * ((v - minY) / spanY);
+
+    final path = Path();
+    for (int i = 0; i < values.length; i++) {
+      final x = xFor(i);
+      final y = yFor(values[i]);
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    canvas.drawPath(path, paintLine);
+
+    final text = TextPainter(
+      text: TextSpan(
+          text: label.toUpperCase(),
+          style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    text.paint(canvas, Offset(right - text.width, top));
+  }
+
+  @override
+  bool shouldRepaint(covariant _SimpleLinePainter oldDelegate) =>
+      oldDelegate.values != values;
+}
+
+// ------------------------------------------------------
+// Radar chart painter
+// ------------------------------------------------------
+class _RadarPainter extends CustomPainter {
+  final Map<String, int> data;
+  _RadarPainter(this.data);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2.5;
+    final count = data.length;
+    if (count == 0) return;
+
+    final paintLine =
+    Paint()..color = Colors.blueAccent..strokeWidth = 2..style = PaintingStyle.stroke;
+    final paintFill =
+    Paint()..color = Colors.blueAccent.withOpacity(0.3)..style = PaintingStyle.fill;
+    final keys = data.keys.toList();
+    final maxVal = data.values.reduce(math.max).toDouble();
+
+    final path = Path();
+    for (int i = 0; i < count; i++) {
+      final angle = (math.pi * 2 / count) * i - math.pi / 2;
+      final value = data[keys[i]]!.toDouble();
+      final r = radius * (value / maxVal);
+      final x = center.dx + r * math.cos(angle);
+      final y = center.dy + r * math.sin(angle);
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    path.close();
+    canvas.drawPath(path, paintFill);
+    canvas.drawPath(path, paintLine);
+
+    // labels
+    final textPainter = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i < count; i++) {      final angle = (math.pi * 2 / count) * i - math.pi / 2;
+    final label = keys[i];
+    final tp = TextPainter(
+      text: TextSpan(
+          text: label,
+          style: const TextStyle(fontSize: 10, color: Colors.grey)),
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 80);
+
+    final lx = center.dx + (radius + 16) * math.cos(angle) - tp.width / 2;
+    final ly = center.dy + (radius + 16) * math.sin(angle) - tp.height / 2;
+    tp.paint(canvas, Offset(lx, ly));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RadarPainter oldDelegate) =>
+      oldDelegate.data != data;
+}
+
 
 class _WeightChartPainter extends CustomPainter {
   final List<WeightPoint> points;
