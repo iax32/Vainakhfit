@@ -3,6 +3,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
+import 'package:intl/intl.dart';
+import 'dart:ui' as ui show TextDirection;
+import 'package:audioplayers/audioplayers.dart';
 
 void main() => runApp(const MyApp());
 
@@ -979,6 +982,7 @@ class AppState extends ChangeNotifier {
   static const _kWorkoutLogs = 'workout_logs_json';
   static const _kPRs = 'prs_json';
   static const _kDataVersion = 'data_version';
+  List<Achievement> achievements = [];
 
   // Naruto affiliation
   String? selectedVillage;
@@ -1370,12 +1374,29 @@ class AppState extends ChangeNotifier {
     _persistActive();
   }
 
+  final AudioPlayer _audioPlayer = AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+
   void tickRest() {
     if (active == null) return;
     for (final e in active!.entries) {
-      if (e.restCountdown > 0) e.restCountdown--;
+      if (e.restCountdown > 0) {
+        e.restCountdown--;
+        if (e.restCountdown == 0) {
+          _playRestFinishedSound();
+        }
+      }
     }
   }
+
+  Future<void> _playRestFinishedSound() async {
+    try {
+      // You can use a local asset or system sound — here's a simple beep:
+      await _audioPlayer.play(AssetSource('sounds/rest_done.mp3'));
+    } catch (e) {
+      debugPrint('Error playing sound: $e');
+    }
+  }
+
 
   /// Ends workout, saves session, updates PRs, returns the saved session.
   Future<WorkoutSession?> endActiveWorkoutAndSave() async {
@@ -1549,6 +1570,1095 @@ class AppState extends ChangeNotifier {
     }
   }
 }
+
+
+//ACHIEVEMENTS CORE SYSTEM
+class Achievement {
+  final String id;            // unique key
+  final String title;
+  final String description;
+  final String theme;
+  bool unlocked;
+  final String emoji;
+  final bool Function(AppState) condition; // checks unlock rule
+
+  Achievement({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.theme,
+    required this.emoji,
+    required this.condition,
+    this.unlocked = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'unlocked': unlocked,
+  };
+
+  factory Achievement.fromJson(Map<String, dynamic> j, Achievement base) =>
+      Achievement(
+        id: base.id,
+        title: base.title,
+        description: base.description,
+        theme: base.theme,
+        emoji: base.emoji,
+        condition: base.condition,
+        unlocked: j['unlocked'] ?? false,
+      );
+}
+
+// ---------- Add to AppState ----------
+extension AppStateAchievements on AppState {
+  static const _kAchievements = 'achievements_json';
+
+
+  /// Create the base list of all achievements
+  List<Achievement> _allAchievements() => [
+    // 🗡 Berserk
+    Achievement(
+      id: 'berserk_struggler',
+      title: 'Struggler',
+      description: 'Complete your first full workout week.',
+      theme: 'Berserk',
+      emoji: '🗡',
+      condition: (s) {
+        final now = DateTime.now();
+        final weekAgo = now.subtract(const Duration(days: 7));
+        final sessions = s.sessions.where((x) => x.startedAt.isAfter(weekAgo));
+        final days = sessions.map((x) => x.startedAt.day).toSet().length;
+        return days >= 7;
+      },
+    ),
+    Achievement(
+      id: 'berserk_dragonslayer',
+      title: 'Dragon Slayer',
+      description: 'Lift a cumulative 10,000 kg.',
+      theme: 'Berserk',
+      emoji: '⚔️',
+      condition: (s) => s.totalWeightLifted >= 10000,
+    ),
+    Achievement(
+      id: 'berserk_rage',
+      title: 'Berserker Rage',
+      description: 'Do 5+ workouts in a week.',
+      theme: 'Berserk',
+      emoji: '🔥',
+      condition: (s) {
+        final now = DateTime.now();
+        final weekAgo = now.subtract(const Duration(days: 7));
+        final cnt = s.sessions.where((x) => x.startedAt.isAfter(weekAgo)).length;
+        return cnt >= 5;
+      },
+    ),
+    Achievement(
+      id: 'berserk_brand',
+      title: 'Brand of Sacrifice',
+      description: 'Train every day for 30 days straight.',
+      theme: 'Berserk',
+      emoji: '💀',
+      condition: (s) {
+        final now = DateTime.now();
+        final monthAgo = now.subtract(const Duration(days: 30));
+        final days = s.sessions
+            .where((x) => x.startedAt.isAfter(monthAgo))
+            .map((x) => x.startedAt.day)
+            .toSet()
+            .length;
+        return days >= 30;
+      },
+    ),
+    Achievement(
+      id: 'berserk_black_swordsman',
+      title: 'Black Swordsman',
+      description: 'Hit 100 total workouts logged.',
+      theme: 'Berserk',
+      emoji: '🖤',
+      condition: (s) => s.workoutCount >= 100,
+    ),
+
+    // 🗡 Berserk – Advanced
+    Achievement(
+      id: 'berserk_ironclad',
+      title: 'Ironclad Resolve',
+      description: 'Lift 100,000 kg total.',
+      theme: 'Berserk',
+      emoji: '⛓',
+      condition: (s) => s.totalWeightLifted >= 100000,
+    ),
+    Achievement(
+      id: 'berserk_apostle',
+      title: 'The Apostle',
+      description: 'Surpass all PRs in one week.',
+      theme: 'Berserk',
+      emoji: '🩸',
+      condition: (s) {
+        final now = DateTime.now();
+        final weekAgo = now.subtract(const Duration(days: 7));
+        final prs = s.prs.values.map((p) => (p.maxWeightKg ?? 0)).where((v) => v > 0);
+        return prs.isNotEmpty && s.sessions.any((x) => x.startedAt.isAfter(weekAgo));
+      },
+    ),
+    Achievement(
+      id: 'berserk_legend',
+      title: 'Legendary Swordsman',
+      description: 'Complete 500 total workouts.',
+      theme: 'Berserk',
+      emoji: '⚔️',
+      condition: (s) => s.workoutCount >= 500,
+    ),
+
+    Achievement(id:'berserk_flesh_and_iron',title:'Flesh and Iron',description:'Lift 250,000 kg total.',theme:'Berserk',emoji:'⚙️',condition:(s)=>s.totalWeightLifted>=250000),
+    Achievement(id:'berserk_blood_oath',title:'Blood Oath',description:'Train 180 days in a row.',theme:'Berserk',emoji:'🩸',condition:(s)=>s.workoutCount>=180),
+    Achievement(id:'berserk_wolf',title:'Wolf of Midland',description:'Train 800 total times.',theme:'Berserk',emoji:'🐺',condition:(s)=>s.workoutCount>=800),
+    Achievement(id:'berserk_armor',title:'Berserker Armor',description:'Do 10 intense sessions in a single week.',theme:'Berserk',emoji:'🛡️',condition:(s){final now=DateTime.now();final weekAgo=now.subtract(const Duration(days:7));return s.sessions.where((x)=>x.startedAt.isAfter(weekAgo)).length>=10;}),
+    Achievement(id:'berserk_rebirth',title:'Rebirth',description:'Return after 30+ day break and complete 3 workouts.',theme:'Berserk',emoji:'🌑',condition:(s){final sorted=s.sessions.map((x)=>x.startedAt).toList()..sort();if(sorted.length<2)return false;for(int i=1;i<sorted.length;i++){if(sorted[i].difference(sorted[i-1]).inDays>30)return true;}return false;}),
+    Achievement(id:'berserk_griffith',title:'Dream Beyond Reach',description:'Achieve 5 PRs above 200 kg.',theme:'Berserk',emoji:'👁️',condition:(s)=>s.prs.values.where((p)=>(p.maxWeightKg??0)>=200).length>=5),
+    Achievement(id:'berserk_army',title:'Hundred Man Slayer',description:'Complete 1000 sets total.',theme:'Berserk',emoji:'⚔️',condition:(s)=>s.sessions.fold<int>(0,(a,b)=>a+b.sets.length)>=1000),
+    Achievement(id:'berserk_tower',title:'Tower of Conviction',description:'Train for 100 consecutive days without missing.',theme:'Berserk',emoji:'🏰',condition:(s)=>s.workoutCount>=100),
+    Achievement(id:'berserk_dragonslayer_supreme',title:'Supreme Dragon Slayer',description:'Lift 1,000,000 kg total.',theme:'Berserk',emoji:'🐉',condition:(s)=>s.totalWeightLifted>=1000000),
+    Achievement(id:'berserk_eclipse_survivor',title:'Eclipse Survivor',description:'Train across 2 full years.',theme:'Berserk',emoji:'🌒',condition:(s)=>s.workoutCount>=730),
+    Achievement(id:'berserk_revenant',title:'Revenant of Rage',description:'Never miss a planned workout for 6 months.',theme:'Berserk',emoji:'🔥',condition:(s)=>s.workoutCount>=180),
+    Achievement(id:'berserk_mindofsteel',title:'Mind of Steel',description:'Lift for 10 hours total in one week.',theme:'Berserk',emoji:'🧠',condition:(s)=>s.sessions.where((x)=>x.durationSeconds!=null).fold<int>(0,(a,b)=>a+(b.durationSeconds??0))>=36000),
+    Achievement(id:'berserk_unbreakable_chain',title:'Unbreakable Chain',description:'Train for 365 consecutive days.',theme:'Berserk',emoji:'⛓️',condition:(s)=>s.workoutCount>=365),
+    Achievement(id:'berserk_grindmaster',title:'The Grinder',description:'Log 5000 total sets.',theme:'Berserk',emoji:'🪓',condition:(s)=>s.sessions.fold<int>(0,(a,b)=>a+b.sets.length)>=5000),
+    Achievement(id:'berserk_endless_rage',title:'Endless Rage',description:'Do 200 workouts in one quarter.',theme:'Berserk',emoji:'🔥',condition:(s)=>s.workoutCount>=200),
+    Achievement(id:'berserk_black_sun',title:'Black Sun',description:'Train at midnight 20 times.',theme:'Berserk',emoji:'🌑',condition:(s)=>s.sessions.where((x)=>x.startedAt.hour==0).length>=20),
+    Achievement(id:'berserk_apex',title:'Apex Swordsman',description:'Reach 1000 total workouts.',theme:'Berserk',emoji:'🗡️',condition:(s)=>s.workoutCount>=1000),
+    Achievement(id:'berserk_fate_breaker',title:'Fate Breaker',description:'Reach 2,000,000 kg lifted.',theme:'Berserk',emoji:'💥',condition:(s)=>s.totalWeightLifted>=2000000),
+    Achievement(id:'berserk_eternal',title:'Eternal Warrior',description:'Train for 3 years straight.',theme:'Berserk',emoji:'⌛',condition:(s)=>s.workoutCount>=1095),
+    Achievement(id:'berserk_dragonheart',title:'Dragon Heart',description:'Surpass 10 PRs above 250 kg.',theme:'Berserk',emoji:'💖',condition:(s)=>s.prs.values.where((p)=>(p.maxWeightKg??0)>=250).length>=10),
+    Achievement(id:'berserk_warband',title:'Warband Leader',description:'Complete 1000+ sets with partners.',theme:'Berserk',emoji:'⚔',condition:(s)=>s.sessions.length>=1000),
+    Achievement(id:'berserk_obsidian',title:'Obsidian Resolve',description:'Log training data 1000 days in a row.',theme:'Berserk',emoji:'🪨',condition:(s)=>s.workoutCount>=1000),
+    Achievement(id:'berserk_ironwill',title:'Iron Will Eternal',description:'Never miss more than 1 day for an entire year.',theme:'Berserk',emoji:'💪',condition:(s)=>s.workoutCount>=365),
+    Achievement(id:'berserk_legendofguts',title:'Legend of Guts',description:'Max out every lift category.',theme:'Berserk',emoji:'🩸',condition:(s)=>s.prs.length>=10),
+    Achievement(id:'berserk_transcendence',title:'Transcendence',description:'Reach 5 million kg lifted.',theme:'Berserk',emoji:'🏋️',condition:(s)=>s.totalWeightLifted>=5000000),
+
+    // 🍃 Naruto
+    Achievement(
+      id: 'naruto_genin',
+      title: 'Genin',
+      description: 'Create your profile and start training.',
+      theme: 'Naruto',
+      emoji: '🍃',
+      condition: (s) => s.workoutCount >= 1,
+    ),
+    Achievement(
+      id: 'naruto_chunin',
+      title: 'Chunin Exam Survivor',
+      description: 'Complete 10 workouts.',
+      theme: 'Naruto',
+      emoji: '🥷',
+      condition: (s) => s.workoutCount >= 10,
+    ),
+    Achievement(
+      id: 'naruto_sage',
+      title: 'Sage Mode Activated',
+      description: 'Log a mindfulness or stretch session.',
+      theme: 'Naruto',
+      emoji: '🌀',
+      condition: (s) =>
+          s.sessions.any((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('stretch') || w.exercise.toLowerCase().contains('yoga'))),
+    ),
+    Achievement(
+      id: 'naruto_shadowclone',
+      title: 'Shadow Clone Grinder',
+      description: 'Do 2 workouts in one day.',
+      theme: 'Naruto',
+      emoji: '👥',
+      condition: (s) {
+        final grouped = <DateTime, int>{};
+        for (final w in s.sessions) {
+          final d = DateTime(w.startedAt.year, w.startedAt.month, w.startedAt.day);
+          grouped[d] = (grouped[d] ?? 0) + 1;
+        }
+        return grouped.values.any((v) => v >= 2);
+      },
+    ),
+    Achievement(
+      id: 'naruto_8th_gate',
+      title: 'The 8th Gate',
+      description: 'Hit a personal record.',
+      theme: 'Naruto',
+      emoji: '🔥',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'naruto_hokage',
+      title: 'Hokage Material',
+      description: '365 workouts completed.',
+      theme: 'Naruto',
+      emoji: '👑',
+      condition: (s) => s.workoutCount >= 365,
+    ),
+
+    // 🍃 Naruto – Advanced
+    Achievement(
+      id: 'naruto_jounin',
+      title: 'Jōnin',
+      description: 'Train 150 times total.',
+      theme: 'Naruto',
+      emoji: '🥋',
+      condition: (s) => s.workoutCount >= 150,
+    ),
+    Achievement(
+      id: 'naruto_sannin',
+      title: 'Sannin',
+      description: 'Master all basic lifts (bench, squat, deadlift, press).',
+      theme: 'Naruto',
+      emoji: '🐍',
+      condition: (s) => s.prs.length >= 4,
+    ),
+    Achievement(
+      id: 'naruto_six_paths',
+      title: 'Six Paths Sage',
+      description: 'Maintain perfect consistency for 6 months.',
+      theme: 'Naruto',
+      emoji: '🌕',
+      condition: (s) {
+        final now = DateTime.now();
+        final halfYearAgo = now.subtract(const Duration(days: 180));
+        final days = s.sessions
+            .where((x) => x.startedAt.isAfter(halfYearAgo))
+            .map((x) => x.startedAt.day)
+            .toSet()
+            .length;
+        return days >= 150;
+      },
+    ),
+    Achievement(
+      id: 'naruto_hokage_ultimate',
+      title: 'Seventh Hokage',
+      description: 'Train 730 times (two full years).',
+      theme: 'Naruto',
+      emoji: '🔥',
+      condition: (s) => s.workoutCount >= 730,
+    ),
+
+    Achievement(
+      id: 'naruto_elite_jounin',
+      title: 'Elite Jōnin',
+      description: 'Train 300 times total.',
+      theme: 'Naruto',
+      emoji: '🥋',
+      condition: (s) => s.workoutCount >= 300,
+    ),
+    Achievement(
+      id: 'naruto_shadow_legend',
+      title: 'Shadow of the Leaf',
+      description: 'Complete 1000 total workouts.',
+      theme: 'Naruto',
+      emoji: '🌿',
+      condition: (s) => s.workoutCount >= 1000,
+    ),
+    Achievement(
+      id: 'naruto_immortal_training',
+      title: 'Immortal Training',
+      description: 'Train every day for 365 consecutive days.',
+      theme: 'Naruto',
+      emoji: '🕓',
+      condition: (s) => s.workoutCount >= 365,
+    ),
+    Achievement(
+      id: 'naruto_kage_bunshin_master',
+      title: 'Kage Bunshin Master',
+      description: 'Do 3 workouts in one day for a full week.',
+      theme: 'Naruto',
+      emoji: '👥',
+      condition: (s) => s.sessions.length >= 21,
+    ),
+    Achievement(
+      id: 'naruto_uzumaki_blood',
+      title: 'Uzumaki Bloodline',
+      description: 'Break 10 PRs in a month.',
+      theme: 'Naruto',
+      emoji: '🌀',
+      condition: (s) {
+        final now = DateTime.now();
+        final monthAgo = now.subtract(const Duration(days: 30));
+        return s.sessions.where((x) => x.startedAt.isAfter(monthAgo)).length >= 10;
+      },
+    ),
+    Achievement(
+      id: 'naruto_sage_master',
+      title: 'Sage of the Six Paths',
+      description: 'Maintain peak form for 12 months.',
+      theme: 'Naruto',
+      emoji: '🌕',
+      condition: (s) => s.workoutCount >= 720,
+    ),
+    Achievement(
+      id: 'naruto_tailed_beast',
+      title: 'Tailed Beast Power',
+      description: 'Lift 1,000,000 kg total.',
+      theme: 'Naruto',
+      emoji: '🐉',
+      condition: (s) => s.totalWeightLifted >= 1000000,
+    ),
+    Achievement(
+      id: 'naruto_akatsuki_elite',
+      title: 'Akatsuki Elite',
+      description: 'Train 10 times with teammates or partners.',
+      theme: 'Naruto',
+      emoji: '🌑',
+      condition: (s) => s.workoutCount >= 10,
+    ),
+    Achievement(
+      id: 'naruto_sannin_reborn',
+      title: 'Sannin Reborn',
+      description: 'Master 10 distinct exercise categories.',
+      theme: 'Naruto',
+      emoji: '🐍',
+      condition: (s) => s.prs.length >= 10,
+    ),
+    Achievement(
+      id: 'naruto_god_of_shinobi',
+      title: 'God of Shinobi',
+      description: 'Train for 5 years total.',
+      theme: 'Naruto',
+      emoji: '👑',
+      condition: (s) => s.workoutCount >= 1825,
+    ),
+    Achievement(
+      id: 'naruto_training_legend',
+      title: 'Legend of the Leaf',
+      description: 'Train 1500 times total.',
+      theme: 'Naruto',
+      emoji: '🍃',
+      condition: (s) => s.workoutCount >= 1500,
+    ),
+    Achievement(
+      id: 'naruto_great_war_hero',
+      title: 'Great Ninja War Hero',
+      description: 'Reach 2,000,000 kg total lifted.',
+      theme: 'Naruto',
+      emoji: '⚔️',
+      condition: (s) => s.totalWeightLifted >= 2000000,
+    ),
+    Achievement(
+      id: 'naruto_meditation_master',
+      title: 'Meditation Master',
+      description: 'Log 50 mindfulness or stretching sessions.',
+      theme: 'Naruto',
+      emoji: '🧘',
+      condition: (s) => s.sessions.where((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('stretch') || w.exercise.toLowerCase().contains('yoga'))).length >= 50,
+    ),
+    Achievement(
+      id: 'naruto_training_revolution',
+      title: 'Training Revolution',
+      description: 'Design and complete 10 custom workout plans.',
+      theme: 'Naruto',
+      emoji: '📜',
+      condition: (s) => s.customExercises.length >= 10,
+    ),
+    Achievement(
+      id: 'naruto_boruto_legacy',
+      title: 'Legacy of the Hokage',
+      description: 'Continue streak for 1000 days total.',
+      theme: 'Naruto',
+      emoji: '🔥',
+      condition: (s) => s.workoutCount >= 1000,
+    ),
+    Achievement(
+      id: 'naruto_nature_energy',
+      title: 'Nature Energy Master',
+      description: 'Workout outdoors 100 times.',
+      theme: 'Naruto',
+      emoji: '🌳',
+      condition: (s) => s.sessions.where((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('run') || w.exercise.toLowerCase().contains('walk'))).length >= 100,
+    ),
+    Achievement(
+      id: 'naruto_kunai_storm',
+      title: 'Kunai Storm',
+      description: 'Train twice per day for a full week.',
+      theme: 'Naruto',
+      emoji: '⚡',
+      condition: (s) => s.sessions.length >= 14,
+    ),
+    Achievement(
+      id: 'naruto_legacy_of_fire',
+      title: 'Legacy of Fire',
+      description: 'Train 3650 times (10-year mark).',
+      theme: 'Naruto',
+      emoji: '🔥',
+      condition: (s) => s.workoutCount >= 3650,
+    ),
+    Achievement(
+      id: 'naruto_true_hero',
+      title: 'True Hero of Konoha',
+      description: 'Reach 5 million kg total lifted.',
+      theme: 'Naruto',
+      emoji: '🏋️',
+      condition: (s) => s.totalWeightLifted >= 5000000,
+    ),
+    Achievement(
+      id: 'naruto_divine_sage',
+      title: 'Divine Sage',
+      description: 'Hit new PRs across every exercise type in one month.',
+      theme: 'Naruto',
+      emoji: '🌕',
+      condition: (s) => s.prs.values.where((p) => (p.maxWeightKg ?? 0) > 0).length >= 10,
+    ),
+    Achievement(
+      id: 'naruto_mission_100',
+      title: '100 Missions Complete',
+      description: 'Train 100 days consecutively without failure.',
+      theme: 'Naruto',
+      emoji: '🎯',
+      condition: (s) => s.workoutCount >= 100,
+    ),
+    Achievement(
+      id: 'naruto_clan_leader',
+      title: 'Clan Leader',
+      description: 'Train with teammates for 100 total sessions.',
+      theme: 'Naruto',
+      emoji: '👥',
+      condition: (s) => s.workoutCount >= 100,
+    ),
+    Achievement(
+      id: 'naruto_sharingan_awakened',
+      title: 'Sharingan Awakened',
+      description: 'Beat every previous PR by 10%.',
+      theme: 'Naruto',
+      emoji: '👁️',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'naruto_ultimate_six_paths',
+      title: 'Ultimate Six Paths',
+      description: 'Reach 10 years of total training.',
+      theme: 'Naruto',
+      emoji: '💫',
+      condition: (s) => s.workoutCount >= 3650,
+    ),
+    Achievement(
+      id: 'naruto_eternal_hero',
+      title: 'Eternal Hero',
+      description: 'Log over 10 million kg lifted lifetime.',
+      theme: 'Naruto',
+      emoji: '🌌',
+      condition: (s) => s.totalWeightLifted >= 10000000,
+    ),
+
+
+    // 🔥 Demon Slayer
+    Achievement(
+      id: 'ds_first_form',
+      title: 'Breath of the First Form',
+      description: 'Finish your first workout.',
+      theme: 'Demon Slayer',
+      emoji: '💨',
+      condition: (s) => s.workoutCount >= 1,
+    ),
+    Achievement(
+      id: 'ds_hashira',
+      title: 'Hashira in Training',
+      description: 'Complete 25 workouts.',
+      theme: 'Demon Slayer',
+      emoji: '⚔️',
+      condition: (s) => s.workoutCount >= 25,
+    ),
+    Achievement(
+      id: 'ds_breath_sun',
+      title: 'Breath of the Sun',
+      description: 'Beat a personal record.',
+      theme: 'Demon Slayer',
+      emoji: '☀️',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'ds_nezuko',
+      title: 'Nezuko Mode',
+      description: 'Work out after 10 PM.',
+      theme: 'Demon Slayer',
+      emoji: '🌙',
+      condition: (s) => s.sessions.any((x) => x.startedAt.hour >= 22),
+    ),
+    Achievement(
+      id: 'ds_uppermoons',
+      title: 'Slay the Upper Moons',
+      description: '50,000 kg lifted or 500 km run (total).',
+      theme: 'Demon Slayer',
+      emoji: '💀',
+      condition: (s) => s.totalWeightLifted >= 50000,
+    ),
+
+    // 🔥 Demon Slayer – Advanced
+    Achievement(
+      id: 'ds_pillar',
+      title: 'Hashira Rank Achieved',
+      description: 'Complete 100 workouts.',
+      theme: 'Demon Slayer',
+      emoji: '💎',
+      condition: (s) => s.workoutCount >= 100,
+    ),
+    Achievement(
+      id: 'ds_demon_moon',
+      title: 'Moon Slayer',
+      description: 'Lift over 500,000 kg total.',
+      theme: 'Demon Slayer',
+      emoji: '🌙',
+      condition: (s) => s.totalWeightLifted >= 500000,
+    ),
+    Achievement(
+      id: 'ds_training_arc',
+      title: 'Endless Training Arc',
+      description: 'Train for 365 days straight.',
+      theme: 'Demon Slayer',
+      emoji: '📆',
+      condition: (s) => s.workoutCount >= 365,
+    ),
+
+    // 💪 Attack on Titan
+    Achievement(
+      id: 'aot_cadet',
+      title: 'Cadet Corps Recruit',
+      description: 'Complete your first week of workouts.',
+      theme: 'Attack on Titan',
+      emoji: '🪖',
+      condition: (s) => s.workoutCount >= 7,
+    ),
+    Achievement(
+      id: 'aot_survey',
+      title: 'Survey Corps Member',
+      description: 'Train outdoors or go for a long run.',
+      theme: 'Attack on Titan',
+      emoji: '🌄',
+      condition: (s) =>
+          s.sessions.any((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('run') || w.exercise.toLowerCase().contains('walk'))),
+    ),
+    Achievement(
+      id: 'aot_titan',
+      title: 'TITAN SHIFTER',
+      description: 'Gain 10 kg of muscle or huge PR.',
+      theme: 'Attack on Titan',
+      emoji: '💪',
+      condition: (s) => s.workoutCount > 0 && s.prs.values.any((p) => (p.maxWeightKg ?? 0) >= 100),
+    ),
+    Achievement(
+      id: 'aot_wings',
+      title: 'Wings of Freedom',
+      description: 'Train consistently for 100 days.',
+      theme: 'Attack on Titan',
+      emoji: '🕊️',
+      condition: (s) {
+        final days = s.sessions.map((x) => DateTime(x.startedAt.year, x.startedAt.month, x.startedAt.day)).toSet().length;
+        return days >= 100;
+      },
+    ),
+    Achievement(
+      id: 'aot_rumbling',
+      title: 'Rumbling Unleashed',
+      description: 'Do a crazy high-volume day (100+ reps).',
+      theme: 'Attack on Titan',
+      emoji: '🌋',
+      condition: (s) => s.sessions.any((x) => x.sets.fold<int>(0, (a, b) => a + b.reps) >= 100),
+    ),
+
+    Achievement(
+      id: 'ds_total_focus_master',
+      title: 'Total Concentration Master',
+      description: 'Train every day for 180 consecutive days.',
+      theme: 'Demon Slayer',
+      emoji: '💨',
+      condition: (s) => s.workoutCount >= 180,
+    ),
+    Achievement(
+      id: 'ds_hashira_elite',
+      title: 'Elite Hashira',
+      description: 'Complete 300 total workouts.',
+      theme: 'Demon Slayer',
+      emoji: '💎',
+      condition: (s) => s.workoutCount >= 300,
+    ),
+    Achievement(
+      id: 'ds_demon_bane',
+      title: 'Demon Bane',
+      description: 'Lift 500,000 kg total.',
+      theme: 'Demon Slayer',
+      emoji: '⚔️',
+      condition: (s) => s.totalWeightLifted >= 500000,
+    ),
+    Achievement(
+      id: 'ds_training_eternal',
+      title: 'Eternal Training Arc',
+      description: 'Train for 365 consecutive days.',
+      theme: 'Demon Slayer',
+      emoji: '📆',
+      condition: (s) => s.workoutCount >= 365,
+    ),
+    Achievement(
+      id: 'ds_slayer_mark_master',
+      title: 'Mark of the Slayer',
+      description: 'Achieve 10 new PRs in a single month.',
+      theme: 'Demon Slayer',
+      emoji: '🔱',
+      condition: (s) => s.prs.values.where((p) => (p.maxWeightKg ?? 0) > 0).length >= 10,
+    ),
+    Achievement(
+      id: 'ds_moon_hashira',
+      title: 'Moon Hashira',
+      description: 'Lift 1,000,000 kg total.',
+      theme: 'Demon Slayer',
+      emoji: '🌙',
+      condition: (s) => s.totalWeightLifted >= 1000000,
+    ),
+    Achievement(
+      id: 'ds_sun_breath_legend',
+      title: 'Legend of the Sun Breath',
+      description: 'Beat your lifetime best PR by 15%.',
+      theme: 'Demon Slayer',
+      emoji: '☀️',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'ds_upper_moon_slayer',
+      title: 'Upper Moon Slayer',
+      description: 'Surpass all previous weight totals in one week.',
+      theme: 'Demon Slayer',
+      emoji: '💀',
+      condition: (s) {
+        final now = DateTime.now();
+        final weekAgo = now.subtract(const Duration(days: 7));
+        final weekSessions = s.sessions.where((x) => x.startedAt.isAfter(weekAgo));
+        return weekSessions.fold<double>(0, (a, b) => a + b.sets.fold(0, (x, y) => x + (y.weightKg ?? 0))) > 0;
+      },
+    ),
+    Achievement(
+      id: 'ds_pillar_of_sun',
+      title: 'Pillar of the Sun',
+      description: 'Train consistently for 2 full years.',
+      theme: 'Demon Slayer',
+      emoji: '🌞',
+      condition: (s) => s.workoutCount >= 730,
+    ),
+    Achievement(
+      id: 'ds_total_focus_zen',
+      title: 'Zen Concentration',
+      description: 'Train silently 50 times (no distractions).',
+      theme: 'Demon Slayer',
+      emoji: '🧘',
+      condition: (s) => s.sessions.length >= 50,
+    ),
+    Achievement(
+      id: 'ds_nichirin_master',
+      title: 'Nichirin Master',
+      description: 'Master 10 different strength categories.',
+      theme: 'Demon Slayer',
+      emoji: '🗡️',
+      condition: (s) => s.prs.length >= 10,
+    ),
+    Achievement(
+      id: 'ds_flame_hashira',
+      title: 'Flame Hashira',
+      description: 'Complete 50 high-intensity sessions.',
+      theme: 'Demon Slayer',
+      emoji: '🔥',
+      condition: (s) => s.sessions.length >= 50,
+    ),
+    Achievement(
+      id: 'ds_sound_hashira',
+      title: 'Sound Hashira',
+      description: 'Train with music 100 times.',
+      theme: 'Demon Slayer',
+      emoji: '🎵',
+      condition: (s) => s.sessions.length >= 100,
+    ),
+    Achievement(
+      id: 'ds_serpent_hashira',
+      title: 'Serpent Hashira',
+      description: 'Do mobility-focused workouts for 30 days.',
+      theme: 'Demon Slayer',
+      emoji: '🐍',
+      condition: (s) => s.sessions.length >= 30,
+    ),
+    Achievement(
+      id: 'ds_mist_hashira',
+      title: 'Mist Hashira',
+      description: 'Workout before sunrise 50 times.',
+      theme: 'Demon Slayer',
+      emoji: '🌫️',
+      condition: (s) => s.sessions.where((x) => x.startedAt.hour < 6).length >= 50,
+    ),
+    Achievement(
+      id: 'ds_love_hashira',
+      title: 'Love Hashira',
+      description: 'Train with a partner for 100 total sessions.',
+      theme: 'Demon Slayer',
+      emoji: '💗',
+      condition: (s) => s.workoutCount >= 100,
+    ),
+    Achievement(
+      id: 'ds_insect_hashira',
+      title: 'Insect Hashira',
+      description: 'Log 50 light, recovery-focused sessions.',
+      theme: 'Demon Slayer',
+      emoji: '🦋',
+      condition: (s) => s.sessions.length >= 50,
+    ),
+    Achievement(
+      id: 'ds_stone_hashira',
+      title: 'Stone Hashira',
+      description: 'Train 1000 times total.',
+      theme: 'Demon Slayer',
+      emoji: '🪨',
+      condition: (s) => s.workoutCount >= 1000,
+    ),
+    Achievement(
+      id: 'ds_thunder_hashira',
+      title: 'Thunder Hashira',
+      description: 'Reach 2,000,000 kg lifted total.',
+      theme: 'Demon Slayer',
+      emoji: '⚡',
+      condition: (s) => s.totalWeightLifted >= 2000000,
+    ),
+    Achievement(
+      id: 'ds_water_hashira',
+      title: 'Water Hashira',
+      description: 'Workout 100 times involving flow or cardio movement.',
+      theme: 'Demon Slayer',
+      emoji: '🌊',
+      condition: (s) => s.sessions.where((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('run') || w.exercise.toLowerCase().contains('swim'))).length >= 100,
+    ),
+    Achievement(
+      id: 'ds_demon_extinguisher',
+      title: 'Demon Extinguisher',
+      description: 'Complete 500 high-volume sessions.',
+      theme: 'Demon Slayer',
+      emoji: '💀',
+      condition: (s) => s.sessions.length >= 500,
+    ),
+    Achievement(
+      id: 'ds_eternal_breath',
+      title: 'Eternal Breath',
+      description: 'Train for 10 years total.',
+      theme: 'Demon Slayer',
+      emoji: '🌅',
+      condition: (s) => s.workoutCount >= 3650,
+    ),
+    Achievement(
+      id: 'ds_sun_breath_god',
+      title: 'Sun Breathing God',
+      description: 'Lift 10 million kg lifetime.',
+      theme: 'Demon Slayer',
+      emoji: '☀️',
+      condition: (s) => s.totalWeightLifted >= 10000000,
+    ),
+    Achievement(
+      id: 'ds_true_pillar',
+      title: 'True Pillar of Strength',
+      description: 'Train for 10,000 hours total.',
+      theme: 'Demon Slayer',
+      emoji: '🏔️',
+      condition: (s) => s.sessions.fold<int>(0,(a,b)=>a+(b.durationSeconds??0))>=36000000,
+    ),
+    Achievement(
+      id: 'ds_slayer_supreme',
+      title: 'Demon Slayer Supreme',
+      description: 'Master every lift and endurance goal.',
+      theme: 'Demon Slayer',
+      emoji: '🗡️',
+      condition: (s) => s.prs.length >= 20,
+    ),
+
+
+    // 💪 Attack on Titan – Advanced
+    Achievement(
+      id: 'aot_titan_king',
+      title: 'Titan King',
+      description: 'Accumulate 1,000,000 kg lifted.',
+      theme: 'Attack on Titan',
+      emoji: '👑',
+      condition: (s) => s.totalWeightLifted >= 1000000,
+    ),
+    Achievement(
+      id: 'aot_founder',
+      title: 'Founding Titan',
+      description: 'Train for 500 total days.',
+      theme: 'Attack on Titan',
+      emoji: '🌀',
+      condition: (s) => s.workoutCount >= 500,
+    ),
+    Achievement(
+      id: 'aot_freedom',
+      title: 'Wings Unbound',
+      description: 'Maintain consistency for 500 consecutive days.',
+      theme: 'Attack on Titan',
+      emoji: '🕊',
+      condition: (s) => s.workoutCount >= 500,
+    ),
+
+    Achievement(
+      id: 'aot_soldier_elite',
+      title: 'Elite Soldier',
+      description: 'Train 300 total times.',
+      theme: 'Attack on Titan',
+      emoji: '🎖️',
+      condition: (s) => s.workoutCount >= 300,
+    ),
+    Achievement(
+      id: 'aot_field_veteran',
+      title: 'Field Veteran',
+      description: 'Train outdoors 200 times.',
+      theme: 'Attack on Titan',
+      emoji: '🌄',
+      condition: (s) => s.sessions.where((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('run') || w.exercise.toLowerCase().contains('walk'))).length >= 200,
+    ),
+    Achievement(
+      id: 'aot_iron_legs',
+      title: 'Legion Powerhouse',
+      description: 'Complete 100 heavy leg sessions.',
+      theme: 'Attack on Titan',
+      emoji: '🦵',
+      condition: (s) => s.sessions.length >= 100,
+    ),
+    Achievement(
+      id: 'aot_captain',
+      title: 'Squad Captain',
+      description: 'Lead 20 group workouts.',
+      theme: 'Attack on Titan',
+      emoji: '🪖',
+      condition: (s) => s.workoutCount >= 20,
+    ),
+    Achievement(
+      id: 'aot_commander',
+      title: 'Commander',
+      description: 'Reach 500 total workouts.',
+      theme: 'Attack on Titan',
+      emoji: '🎯',
+      condition: (s) => s.workoutCount >= 500,
+    ),
+    Achievement(
+      id: 'aot_wall_defender',
+      title: 'Wall Defender',
+      description: 'Train every week for 52 consecutive weeks.',
+      theme: 'Attack on Titan',
+      emoji: '🧱',
+      condition: (s) => s.workoutCount >= 365,
+    ),
+    Achievement(
+      id: 'aot_titan_exterminator',
+      title: 'Titan Exterminator',
+      description: 'Lift 1,000,000 kg total.',
+      theme: 'Attack on Titan',
+      emoji: '⚙️',
+      condition: (s) => s.totalWeightLifted >= 1000000,
+    ),
+    Achievement(
+      id: 'aot_colossal',
+      title: 'Colossal Titan',
+      description: 'Lift 2,500,000 kg lifetime.',
+      theme: 'Attack on Titan',
+      emoji: '🔥',
+      condition: (s) => s.totalWeightLifted >= 2500000,
+    ),
+    Achievement(
+      id: 'aot_armored',
+      title: 'Armored Titan',
+      description: 'Reach 5,000,000 kg lifted total.',
+      theme: 'Attack on Titan',
+      emoji: '🛡️',
+      condition: (s) => s.totalWeightLifted >= 5000000,
+    ),
+    Achievement(
+      id: 'aot_founding_legacy',
+      title: 'Founding Titan Legacy',
+      description: 'Train for 5 years total.',
+      theme: 'Attack on Titan',
+      emoji: '🌀',
+      condition: (s) => s.workoutCount >= 1825,
+    ),
+    Achievement(
+      id: 'aot_marley_warrior',
+      title: 'Marley Warrior',
+      description: 'Complete 300 leg days total.',
+      theme: 'Attack on Titan',
+      emoji: '⚔️',
+      condition: (s) => s.sessions.length >= 300,
+    ),
+    Achievement(
+      id: 'aot_shifter_supreme',
+      title: 'Shifter Supreme',
+      description: 'Hit 10 lifetime PRs above 200 kg.',
+      theme: 'Attack on Titan',
+      emoji: '💪',
+      condition: (s) => s.prs.values.where((p) => (p.maxWeightKg ?? 0) >= 200).length >= 10,
+    ),
+    Achievement(
+      id: 'aot_eren_mode',
+      title: 'Eren Mode',
+      description: 'Train through exhaustion 7 days straight.',
+      theme: 'Attack on Titan',
+      emoji: '🔥',
+      condition: (s) => s.workoutCount >= 7,
+    ),
+    Achievement(
+      id: 'aot_war_for_paradis',
+      title: 'War for Paradis',
+      description: 'Train 1500 times total.',
+      theme: 'Attack on Titan',
+      emoji: '🗡️',
+      condition: (s) => s.workoutCount >= 1500,
+    ),
+    Achievement(
+      id: 'aot_ackerman_heritage',
+      title: 'Ackerman Heritage',
+      description: 'Beat all PRs in a single week.',
+      theme: 'Attack on Titan',
+      emoji: '⚡',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'aot_titan_kingdom',
+      title: 'Titan Kingdom',
+      description: 'Lift 10 million kg lifetime.',
+      theme: 'Attack on Titan',
+      emoji: '👑',
+      condition: (s) => s.totalWeightLifted >= 10000000,
+    ),
+    Achievement(
+      id: 'aot_veteran_scout',
+      title: 'Veteran Scout',
+      description: 'Train outdoors 500 times total.',
+      theme: 'Attack on Titan',
+      emoji: '🗺️',
+      condition: (s) => s.sessions.where((x) => x.sets.any((w) => w.exercise.toLowerCase().contains('run'))).length >= 500,
+    ),
+    Achievement(
+      id: 'aot_wings_of_iron',
+      title: 'Wings of Iron',
+      description: 'Never miss a week for 2 years straight.',
+      theme: 'Attack on Titan',
+      emoji: '🕊️',
+      condition: (s) => s.workoutCount >= 730,
+    ),
+    Achievement(
+      id: 'aot_hope_for_humanity',
+      title: 'Hope for Humanity',
+      description: 'Train 3650 times total (10 years).',
+      theme: 'Attack on Titan',
+      emoji: '🌅',
+      condition: (s) => s.workoutCount >= 3650,
+    ),
+    Achievement(
+      id: 'aot_hero_of_walls',
+      title: 'Hero of the Walls',
+      description: 'Surpass all recorded personal records.',
+      theme: 'Attack on Titan',
+      emoji: '🏅',
+      condition: (s) => s.prs.values.any((p) => (p.maxWeightKg ?? 0) > 0),
+    ),
+    Achievement(
+      id: 'aot_paradis_champion',
+      title: 'Champion of Paradis',
+      description: 'Maintain perfect streak for 3 years.',
+      theme: 'Attack on Titan',
+      emoji: '🏰',
+      condition: (s) => s.workoutCount >= 1095,
+    ),
+    Achievement(
+      id: 'aot_army_of_one',
+      title: 'Army of One',
+      description: 'Train 5,000 total sessions.',
+      theme: 'Attack on Titan',
+      emoji: '🪖',
+      condition: (s) => s.workoutCount >= 5000,
+    ),
+    Achievement(
+      id: 'aot_titan_emperor',
+      title: 'Titan Emperor',
+      description: 'Surpass 20 million kg lifted lifetime.',
+      theme: 'Attack on Titan',
+      emoji: '💥',
+      condition: (s) => s.totalWeightLifted >= 20000000,
+    ),
+    Achievement(
+      id: 'aot_true_freedom',
+      title: 'True Freedom',
+      description: 'Train daily for 10 years straight.',
+      theme: 'Attack on Titan',
+      emoji: '🕊',
+      condition: (s) => s.workoutCount >= 3650,
+    ),
+    Achievement(
+      id: 'aot_end_of_era',
+      title: 'End of an Era',
+      description: 'Reach 50 million kg lifetime total.',
+      theme: 'Attack on Titan',
+      emoji: '🌌',
+      condition: (s) => s.totalWeightLifted >= 50000000,
+    ),
+
+
+
+    // 🧠 Meta
+    Achievement(
+      id: 'meta_unbreakable',
+      title: 'Unbreakable Will',
+      description: 'Train for a full year without missing >3 days in a row.',
+      theme: 'Meta',
+      emoji: '🧠',
+      condition: (s) {
+        final sorted = s.sessions.map((x) => x.startedAt).toList()..sort();
+        if (sorted.length < 2) return false;
+        int gap = 0;
+        for (int i = 1; i < sorted.length; i++) {
+          final diff = sorted[i].difference(sorted[i - 1]).inDays;
+          if (diff > 3) gap++;
+          if (gap > 0) return false;
+        }
+        return s.sessions.length >= 365;
+      },
+    ),
+  ];
+
+  // ------------ Initialization & Persistence ------------
+  Future<void> loadAchievements() async {
+    final base = _allAchievements();
+    final raw = _prefs.getString(_kAchievements);
+    if (raw == null) {
+      achievements = base;
+      return;
+    }
+    try {
+      final saved = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      achievements = base.map((a) {
+        final match = saved.firstWhere(
+                (x) => x['id'] == a.id,
+            orElse: () => {});
+        return match.isNotEmpty ? Achievement.fromJson(match, a) : a;
+      }).toList();
+    } catch (_) {
+      achievements = base;
+    }
+  }
+
+  Future<void> saveAchievements() async {
+    final arr = achievements.map((a) => a.toJson()).toList();
+    await _prefs.setString(_kAchievements, jsonEncode(arr));
+  }
+
+  // ------------ Check & unlock logic ------------
+  Future<void> checkAchievements(BuildContext context) async {
+    bool changed = false;
+    for (final a in achievements) {
+      if (!a.unlocked && a.condition(this)) {
+        a.unlocked = true;
+        changed = true;
+        // show notification
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('🏆 Achievement unlocked: ${a.title}!'),
+            duration: const Duration(seconds: 3),
+          ));
+        }
+      }
+    }
+    if (changed) await saveAchievements();
+  }
+}
+
 
 // =====================================================
 // === PART 1: Naruto Data, Rank System & User Stats ===
@@ -1861,6 +2971,10 @@ class _RootNavState extends State<RootNav> {
                         final proposed = state.proposeUpdatedPlanFromActive();
 
                         final s = await state.endActiveWorkoutAndSave();
+
+                        // ✅ Immediately check for newly unlocked achievements
+                        await state.checkAchievements(context);
+
                         if (!mounted) return;
 
                         if (proposed != null) {
@@ -2543,6 +3657,7 @@ class ActiveWorkoutPage extends StatefulWidget {
   const ActiveWorkoutPage({super.key});
   @override
   State<ActiveWorkoutPage> createState() => _ActiveWorkoutPageState();
+
 }
 
 class _ActiveWorkoutPageState extends State<ActiveWorkoutPage> {
@@ -2550,7 +3665,9 @@ class _ActiveWorkoutPageState extends State<ActiveWorkoutPage> {
     final h = d.inHours;
     final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+
     return h > 0 ? '$h:$m:$s' : '$m:$s';
+
   }
 
   void _showAddExerciseSheet(BuildContext context) {
@@ -3353,46 +4470,46 @@ class FindPlansPage extends StatelessWidget {
   const FindPlansPage({super.key});
 
   List<WorkoutPlan> _templates() => [
-  WorkoutPlan(id: _genId(), title: 'StrongLifts 5x5', items: [
-  PlanExercise(name: 'Back Squat', sets: 5, reps: 5),
-  PlanExercise(name: 'Bench Press', sets: 5, reps: 5),
-  PlanExercise(name: 'Barbell Row', sets: 5, reps: 5),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Starting Strength (A)', items: [
-  PlanExercise(name: 'Back Squat', sets: 3, reps: 5),
-  PlanExercise(name: 'Bench Press', sets: 3, reps: 5),
-  PlanExercise(name: 'Deadlift', sets: 1, reps: 5),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Starting Strength (B)', items: [
-  PlanExercise(name: 'Back Squat', sets: 3, reps: 5),
-  PlanExercise(name: 'Overhead Press', sets: 3, reps: 5),
-  PlanExercise(name: 'Deadlift', sets: 1, reps: 5),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Push', items: [
-  PlanExercise(name: 'Bench Press', sets: 4, reps: 8),
-  PlanExercise(name: 'Overhead Press', sets: 3, reps: 10),
-  PlanExercise(name: 'Triceps Pushdown', sets: 3, reps: 12),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Pull', items: [
-  PlanExercise(name: 'Deadlift', sets: 3, reps: 5),
-  PlanExercise(name: 'Pull-up', sets: 4, reps: 8),
-  PlanExercise(name: 'Barbell Row', sets: 3, reps: 10),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Legs', items: [
-  PlanExercise(name: 'Back Squat', sets: 4, reps: 8),
-  PlanExercise(name: 'Romanian Deadlift', sets: 3, reps: 10),
-  PlanExercise(name: 'Lateral Raise', sets: 3, reps: 15),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Full Body Beginner', items: [
-  PlanExercise(name: 'Back Squat', sets: 3, reps: 8),
-  PlanExercise(name: 'Bench Press', sets: 3, reps: 8),
-  PlanExercise(name: 'Pull-up', sets: 3, reps: 6),
-  ]),
-  WorkoutPlan(id: _genId(), title: 'Upper/Lower - Upper', items: [
-  PlanExercise(name: 'Bench Press', sets: 4, reps: 6),
-  PlanExercise(name: 'Barbell Row', sets: 4, reps: 8),
-  PlanExercise(name: 'Overhead Press', sets: 3, reps: 10),
-  ]),
+    WorkoutPlan(id: _genId(), title: 'StrongLifts 5x5', items: [
+      PlanExercise(name: 'Back Squat', sets: 5, reps: 5),
+      PlanExercise(name: 'Bench Press', sets: 5, reps: 5),
+      PlanExercise(name: 'Barbell Row', sets: 5, reps: 5),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Starting Strength (A)', items: [
+      PlanExercise(name: 'Back Squat', sets: 3, reps: 5),
+      PlanExercise(name: 'Bench Press', sets: 3, reps: 5),
+      PlanExercise(name: 'Deadlift', sets: 1, reps: 5),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Starting Strength (B)', items: [
+      PlanExercise(name: 'Back Squat', sets: 3, reps: 5),
+      PlanExercise(name: 'Overhead Press', sets: 3, reps: 5),
+      PlanExercise(name: 'Deadlift', sets: 1, reps: 5),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Push', items: [
+      PlanExercise(name: 'Bench Press', sets: 4, reps: 8),
+      PlanExercise(name: 'Overhead Press', sets: 3, reps: 10),
+      PlanExercise(name: 'Triceps Pushdown', sets: 3, reps: 12),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Pull', items: [
+      PlanExercise(name: 'Deadlift', sets: 3, reps: 5),
+      PlanExercise(name: 'Pull-up', sets: 4, reps: 8),
+      PlanExercise(name: 'Barbell Row', sets: 3, reps: 10),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Push/Pull/Legs - Legs', items: [
+      PlanExercise(name: 'Back Squat', sets: 4, reps: 8),
+      PlanExercise(name: 'Romanian Deadlift', sets: 3, reps: 10),
+      PlanExercise(name: 'Lateral Raise', sets: 3, reps: 15),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Full Body Beginner', items: [
+      PlanExercise(name: 'Back Squat', sets: 3, reps: 8),
+      PlanExercise(name: 'Bench Press', sets: 3, reps: 8),
+      PlanExercise(name: 'Pull-up', sets: 3, reps: 6),
+    ]),
+    WorkoutPlan(id: _genId(), title: 'Upper/Lower - Upper', items: [
+      PlanExercise(name: 'Bench Press', sets: 4, reps: 6),
+      PlanExercise(name: 'Barbell Row', sets: 4, reps: 8),
+      PlanExercise(name: 'Overhead Press', sets: 3, reps: 10),
+    ]),
     WorkoutPlan(id: _genId(), title: 'Upper/Lower - Lower', items: [
       PlanExercise(name: 'Back Squat', sets: 4, reps: 6),
       PlanExercise(name: 'Romanian Deadlift', sets: 3, reps: 8),
@@ -3797,7 +4914,7 @@ class _PRChartPainter extends CustomPainter {
     }
 
     // axis labels
-    final tp = TextPainter(textDirection: TextDirection.ltr);
+    final tp = TextPainter(textDirection: ui.TextDirection.ltr);
     final minLabel = TextSpan(
         text: '${minY.toStringAsFixed(0)} kg',
         style: const TextStyle(fontSize: 10, color: Colors.grey));
@@ -3815,7 +4932,7 @@ class _PRChartPainter extends CustomPainter {
         text: TextSpan(
             text: 'Date',
             style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        textDirection: TextDirection.ltr)
+        textDirection: ui.TextDirection.ltr)
       ..layout();
     dateLabel.paint(canvas, Offset(right - dateLabel.width, bottom - 14));
   }
@@ -3833,12 +4950,15 @@ class ProgressScreen extends StatefulWidget {
 }
 
 enum _Range { week, month, year, all }
+String _graphRange = 'week'; // 'week', 'month', 'year'
 enum _GraphType { weight, duration, volume, workouts }
 enum _ProgressTab { overview, exercises, measures, photos }
 
 class _ProgressScreenState extends State<ProgressScreen> {
   _GraphType _graph = _GraphType.weight;
   _ProgressTab _tab = _ProgressTab.overview;
+  _Range _range = _Range.month;
+  String _graphRange = 'week'; // NEW
 
   @override
   Widget build(BuildContext context) {
@@ -3876,7 +4996,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   // Overview tab
   // --------------------------------------------------
   Widget _overviewTab(AppState state, ColorScheme cs) {
-    final weightPts = state.weightHistory;
+    final weightPts = _filter(state.weightHistory); // UPDATED
     final yearStats = state.thisYearStats;
     final allStats = state.allTimeStats;
 
@@ -3887,7 +5007,32 @@ class _ProgressScreenState extends State<ProgressScreen> {
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
 
-        // ---------------- Graph + switcher ----------------
+        // ---------------- Range Buttons ----------------
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ChoiceChip(
+              label: const Text('This Week'),
+              selected: _graphRange == 'week',
+              onSelected: (_) => setState(() => _graphRange = 'week'),
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              label: const Text('This Month'),
+              selected: _graphRange == 'month',
+              onSelected: (_) => setState(() => _graphRange = 'month'),
+            ),
+            const SizedBox(width: 8),
+            ChoiceChip(
+              label: const Text('This Year'),
+              selected: _graphRange == 'year',
+              onSelected: (_) => setState(() => _graphRange = 'year'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // ---------------- Graph ----------------
         SizedBox(
           height: 240,
           child: Card(
@@ -3913,23 +5058,52 @@ class _ProgressScreenState extends State<ProgressScreen> {
         const SizedBox(height: 20),
 
         // ---------------- Yearly / All time stats ----------------
-        const Text('This Year', style: TextStyle(fontWeight: FontWeight.bold)),
+        // ----- This Year -----
         Card(
           child: ListTile(
             title: const Text('Workouts'),
             trailing: Text('${yearStats.workouts}'),
             subtitle: Text(
-                'Duration: ${_fmtDur(yearStats.durationSeconds)} • Weight lifted: ${yearStats.totalWeight.toStringAsFixed(0)} kg'),
+              'Duration: ${_fmtDur(yearStats.durationSeconds)} • Weight lifted: ${yearStats.totalWeight.toStringAsFixed(0)} kg',
+            ),
+            onTap: () {
+              final now = DateTime.now();
+              final yearSessions = state.sessions
+                  .where((s) => s.startedAt.year == now.year)
+                  .toList();
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WorkoutsListPage(
+                    workouts: yearSessions,
+                    title: 'Workouts – This Year',
+                  ),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 6),
         const Text('All Time', style: TextStyle(fontWeight: FontWeight.bold)),
+        // ----- All Time -----
         Card(
           child: ListTile(
             title: const Text('Workouts'),
             trailing: Text('${allStats.workouts}'),
             subtitle: Text(
-                'Duration: ${_fmtDur(allStats.durationSeconds)} • Weight lifted: ${allStats.totalWeight.toStringAsFixed(0)} kg'),
+              'Duration: ${_fmtDur(allStats.durationSeconds)} • Weight lifted: ${allStats.totalWeight.toStringAsFixed(0)} kg',
+            ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => WorkoutsListPage(
+                    workouts: state.sessions,
+                    title: 'Workouts – All Time',
+                  ),
+                ),
+              );
+            },
           ),
         ),
         const SizedBox(height: 12),
@@ -3960,8 +5134,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
     return ElevatedButton.icon(
       style: ElevatedButton.styleFrom(
         minimumSize: const Size(100, 36),
-        backgroundColor:
-        selected ? null : Colors.grey.withOpacity(0.2),
+        backgroundColor: selected ? null : Colors.grey.withOpacity(0.2),
       ),
       onPressed: () => setState(() => _graph = type),
       icon: Icon(icon, size: 18),
@@ -3970,38 +5143,129 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 
   Widget _buildGraph(AppState state) {
-    final pts = state.weightHistory;
-    if (pts.length < 2) {
+    // Build (date, value) pairs depending on graph type
+    final now = DateTime.now();
+    DateTime from;
+    switch (_graphRange) {
+      case 'week':
+        from = now.subtract(const Duration(days: 7));
+        break;
+      case 'month':
+        from = now.subtract(const Duration(days: 30));
+        break;
+      case 'year':
+        from = now.subtract(const Duration(days: 365));
+        break;
+      default:
+        from = now.subtract(const Duration(days: 7));
+    }
+
+    Iterable sessions = state.sessions.where((s) => s.startedAt.isAfter(from));
+
+    // (1) Build date-value list depending on graph type
+    List<(DateTime, double)> data = [];
+
+    switch (_graph) {
+      case _GraphType.weight:
+        data = List<(DateTime, double)>.from(
+          state.weightHistory
+              .where((e) => e.at.isAfter(from))
+              .map((e) => (e.at, e.kg)),
+        );
+        break;
+
+      case _GraphType.duration:
+        data = List<(DateTime, double)>.from(
+          sessions.map((s) => (s.startedAt, (s.durationSeconds ?? 0) / 60)),
+        );
+        break;
+
+      case _GraphType.volume:
+        data = List<(DateTime, double)>.from(
+          sessions.map((s) {
+            double total = 0;
+            for (final set in s.sets) {
+              if (set.weightKg != null) total += set.weightKg! * set.reps;
+            }
+            return (s.startedAt, total);
+          }),
+        );
+        break;
+
+      case _GraphType.workouts:
+      // Count workouts per day
+        final grouped = <DateTime, int>{};
+        for (final s in sessions) {
+          final day =
+          DateTime(s.startedAt.year, s.startedAt.month, s.startedAt.day);
+          grouped[day] = (grouped[day] ?? 0) + 1;
+        }
+        data = List<(DateTime, double)>.from(
+          grouped.entries.map((e) => (e.key, e.value.toDouble())),
+        );
+        break;
+    }
+
+
+    data.sort((a, b) => a.$1.compareTo(b.$1));
+
+    if (data.length < 2) {
       return const Center(child: Text('Not enough data yet.'));
     }
 
-    // pick numeric Y values based on graph type
-    List<double> yVals;
+    // Choose label for Y-axis
+    String label;
     switch (_graph) {
       case _GraphType.weight:
-        yVals = pts.map((e) => e.kg).toList();
+        label = 'kg';
         break;
       case _GraphType.duration:
-        yVals = state.sessions.map((s) => (s.durationSeconds ?? 0) / 60).toList();
+        label = 'min';
         break;
       case _GraphType.volume:
-        yVals = state.sessions.map((s) {
-          double total = 0;
-          for (final set in s.sets) {
-            if (set.weightKg != null) total += set.weightKg! * set.reps;
-          }
-          return total;
-        }).toList();
+        label = 'kg';
         break;
       case _GraphType.workouts:
-        yVals = List.generate(state.sessions.length, (i) => i + 1.0);
+        label = '';
         break;
     }
 
     return CustomPaint(
-      painter: _SimpleLinePainter(yVals, label: _graph.name),
+      painter: _TimelineChartPainter(
+        data,
+        yLabel: label,
+        color: Theme.of(context).colorScheme.primary,
+      ),
       child: Container(),
     );
+
+  }
+
+
+
+  // --------------------------------------------------
+  // Filter function for week/month/year
+  // --------------------------------------------------
+  List<WeightPoint> _filter(List<WeightPoint> src) {
+    if (src.isEmpty) return src;
+    final now = DateTime.now();
+    DateTime from;
+
+    switch (_graphRange) {
+      case 'week':
+        from = now.subtract(const Duration(days: 7));
+        break;
+      case 'month':
+        from = now.subtract(const Duration(days: 30));
+        break;
+      case 'year':
+        from = now.subtract(const Duration(days: 365));
+        break;
+      default:
+        from = now.subtract(const Duration(days: 7));
+    }
+
+    return src.where((p) => !p.at.isBefore(from)).toList();
   }
 
   // --------------------------------------------------
@@ -4012,18 +5276,36 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final next = state.nextRank;
     final left = state.workoutsUntilNextRank;
 
-    return Card(
-      color: cs.primary.withOpacity(.08),
-      child: ListTile(
-        leading: Text(rank.icon ?? '🎓', style: const TextStyle(fontSize: 24)),
-        title: Text('${rank.name}',
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: next == null
-            ? const Text('You reached the top rank!')
-            : Text('Next: ${next.name}  •  $left workouts left'),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          color: cs.primary.withOpacity(.08),
+          child: ListTile(
+            leading: Text(rank.icon ?? '🎓', style: const TextStyle(fontSize: 24)),
+            title: Text(rank.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: next == null
+                ? const Text('You reached the top rank!')
+                : Text('Next: ${next.name}  •  $left workouts left'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          icon: const Icon(Icons.emoji_events),
+          label: const Text('View Achievements'),
+          onPressed: () async {
+            await state.checkAchievements(context);
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const AchievementsPage()),
+            );
+          },
+        ),
+      ],
     );
   }
+
+
 
   // --------------------------------------------------
   // Radar chart and weekly list
@@ -4075,7 +5357,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
             padding: const EdgeInsets.all(12),
             child: CustomPaint(
               size: Size.square(width - 24),
-              painter: _RadarPainter(counter),
+              painter: _RadarPainter(
+                counter,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
           ),
         ),
@@ -4287,6 +5572,361 @@ class _ProgressScreenState extends State<ProgressScreen> {
   }
 }
 
+class WorkoutsListPage extends StatelessWidget {
+  final List<WorkoutSession> workouts;
+  final String title;
+
+  const WorkoutsListPage({
+    super.key,
+    required this.workouts,
+    required this.title,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = workouts.toList()
+      ..sort((a, b) => b.startedAt.compareTo(a.startedAt)); // newest first
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: sorted.isEmpty
+          ? const Center(child: Text('No workouts found.'))
+          : ListView.builder(
+        itemCount: sorted.length,
+        itemBuilder: (context, i) {
+          final s = sorted[i];
+          final totalVolume = s.sets.fold<double>(
+              0,
+                  (sum, set) =>
+              sum + ((set.weightKg ?? 0) * (set.reps)));
+          final durationMin =
+          ((s.durationSeconds ?? 0) / 60).toStringAsFixed(0);
+          final dateStr = DateFormat('yyyy-MM-dd – HH:mm')
+              .format(s.startedAt);
+
+          return Card(
+            margin:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: ListTile(
+              title: Text('Workout #${sorted.length - i}'),
+              subtitle: Text(
+                'Date: $dateStr\nDuration: $durationMin min\nVolume: ${totalVolume.toStringAsFixed(0)} kg',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+class AchievementsPage extends StatelessWidget {
+  const AchievementsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = AppScope.of(context);
+    final cs = Theme.of(context).colorScheme;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Achievements')),
+      body: FutureBuilder(
+        future: state.loadAchievements(),
+        builder: (context, snapshot) {
+          final list = state.achievements;
+          if (list.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // group achievements by theme
+          final grouped = <String, List<Achievement>>{};
+          for (final a in list) {
+            grouped.putIfAbsent(a.theme, () => []).add(a);
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: grouped.entries.map((entry) {
+              final theme = entry.key;
+              final achs = entry.value;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    theme,
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...achs.map((a) => _achievementCard(context, state, a, cs)),
+                  const SizedBox(height: 20),
+                ],
+              );
+            }).toList(),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _achievementCard(
+      BuildContext context, AppState state, Achievement a, ColorScheme cs) {
+    final locked = !a.unlocked;
+    final baseColor = locked
+        ? cs.surfaceVariant.withOpacity(0.4)
+        : cs.primary.withOpacity(0.15);
+    final iconColor = locked ? Colors.grey : cs.primary;
+    final textColor = locked ? Colors.grey : cs.onSurface;
+
+    final progress = _calculateProgress(a, state).clamp(0.0, 1.0);
+    final percentText = '${(progress * 100).toStringAsFixed(0)}%';
+
+    return Card(
+      color: baseColor,
+      elevation: locked ? 0 : 2,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Text(a.emoji,
+                  style: TextStyle(fontSize: 28, color: iconColor)),
+              title: Text(a.title,
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: textColor)),
+              subtitle: Text(
+                a.description,
+                style: TextStyle(color: textColor.withOpacity(0.8)),
+              ),
+              trailing: locked
+                  ? const Icon(Icons.lock_outline, color: Colors.grey)
+                  : const Icon(Icons.check_circle, color: Colors.green),
+            ),
+            if (!a.unlocked) ...[
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: Colors.black12,
+                  color: cs.primary,
+                  minHeight: 8,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(percentText,
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: cs.onSurface.withOpacity(0.6))),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Calculate estimated completion % for different achievement types
+  double _calculateProgress(Achievement a, AppState s) {
+    switch (a.id) {
+    // Berserk
+      case 'berserk_dragonslayer':
+        return s.totalWeightLifted / 10000;
+      case 'berserk_black_swordsman':
+        return s.workoutCount / 100;
+      case 'berserk_brand':
+        final now = DateTime.now();
+        final monthAgo = now.subtract(const Duration(days: 30));
+        final days = s.sessions
+            .where((x) => x.startedAt.isAfter(monthAgo))
+            .map((x) => x.startedAt.day)
+            .toSet()
+            .length;
+        return days / 30;
+
+    // Naruto
+      case 'naruto_chunin':
+        return s.workoutCount / 10;
+      case 'naruto_hokage':
+        return s.workoutCount / 365;
+
+    // Demon Slayer
+      case 'ds_hashira':
+        return s.workoutCount / 25;
+      case 'ds_uppermoons':
+        return s.totalWeightLifted / 50000;
+
+    // Attack on Titan
+      case 'aot_cadet':
+        return s.workoutCount / 7;
+      case 'aot_wings':
+        final days = s.sessions
+            .map((x) => DateTime(x.startedAt.year, x.startedAt.month, x.startedAt.day))
+            .toSet()
+            .length;
+        return days / 100;
+
+    // Other
+      case 'other_fullmetal':
+        final monthAgo = DateTime.now().subtract(const Duration(days: 30));
+        final days2 = s.sessions
+            .where((x) => x.startedAt.isAfter(monthAgo))
+            .map((x) => x.startedAt.day)
+            .toSet()
+            .length;
+        return days2 / 30;
+
+    // Meta
+      case 'meta_unbreakable':
+        return s.sessions.length / 365;
+
+      default:
+        return 0;
+    }
+  }
+}
+
+
+class _TimelineChartPainter extends CustomPainter {
+  final List<(DateTime, double)> data;
+  final String yLabel;
+  final Color color;
+
+  _TimelineChartPainter(
+      this.data, {
+        required this.yLabel,
+        required this.color,
+      });
+
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    final paintAxis = Paint()
+      ..color = Colors.grey.withOpacity(0.4)
+      ..strokeWidth = 1;
+
+    final left = 40.0;
+    final right = size.width - 10;
+    final top = 10.0;
+    final bottom = size.height - 30.0;
+
+    // Axis lines
+    canvas.drawLine(Offset(left, top), Offset(left, bottom), paintAxis);
+    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), paintAxis);
+
+    // Value ranges
+    final minY = data.map((e) => e.$2).reduce((a, b) => a < b ? a : b);
+    final maxY = data.map((e) => e.$2).reduce((a, b) => a > b ? a : b);
+    final minX = data.map((e) => e.$1).reduce((a, b) => a.isBefore(b) ? a : b);
+    final maxX = data.map((e) => e.$1).reduce((a, b) => a.isAfter(b) ? a : b);
+
+    final spanY = (maxY - minY).abs() < 1e-9 ? 1.0 : (maxY - minY);
+    final spanX = maxX.difference(minX).inMilliseconds.toDouble().clamp(1, double.infinity);
+
+    double xFor(DateTime t) =>
+        left + (right - left) * (t.difference(minX).inMilliseconds / spanX);
+    double yFor(double v) =>
+        bottom - (bottom - top) * ((v - minY) / spanY);
+
+    // === Dynamic primary color ===
+    final lineColor = color;
+
+    // --- Line Paint ---
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2.2
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // --- Dot Paint ---
+    final dotPaint = Paint()..color = lineColor;
+
+    // --- Path for line ---
+    final path = Path();
+    for (int i = 0; i < data.length; i++) {
+      final (date, value) = data[i];
+      final x = xFor(date);
+      final y = yFor(value);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+
+    // --- Draw gradient fill ---
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          lineColor.withOpacity(0.25),
+          Colors.transparent,
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTRB(left, top, right, bottom))
+      ..style = PaintingStyle.fill;
+
+    final fillPath = Path.from(path)
+      ..lineTo(right, bottom)
+      ..lineTo(left, bottom)
+      ..close();
+
+    canvas.drawPath(fillPath, fillPaint); // soft fill
+    canvas.drawPath(path, linePaint); // line itself
+
+    // --- Dots ---
+    for (final (date, value) in data) {
+      final x = xFor(date);
+      final y = yFor(value);
+      canvas.drawCircle(Offset(x, y), 3.5, dotPaint);
+    }
+
+    // --- Axis Labels ---
+    final tp = TextPainter(textDirection: ui.TextDirection.ltr);
+
+    // Y labels
+    for (int i = 0; i <= 4; i++) {
+      final v = minY + (spanY / 4) * i;
+      final y = yFor(v);
+      tp.text = TextSpan(
+        text: '${v.toStringAsFixed(0)}',
+        style: const TextStyle(fontSize: 10, color: Colors.grey),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(2, y - 6));
+    }
+
+    // X labels
+    final df = DateFormat('MM/dd');
+    for (int i = 0; i < data.length; i += (data.length / 4).ceil()) {
+      final (d, _) = data[i];
+      final x = xFor(d);
+      tp.text = TextSpan(
+        text: df.format(d),
+        style: const TextStyle(fontSize: 10, color: Colors.grey),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, bottom + 4));
+    }
+  }
+
+
+  @override
+  bool shouldRepaint(covariant _TimelineChartPainter old) =>
+      old.data != data || old.yLabel != yLabel;
+}
+
 // ------------------------------------------------------
 // Simple graph painter
 // ------------------------------------------------------
@@ -4326,7 +5966,7 @@ class _SimpleLinePainter extends CustomPainter {
       text: TextSpan(
           text: label.toUpperCase(),
           style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      textDirection: TextDirection.ltr,
+      textDirection: ui.TextDirection.ltr,
     )..layout();
     text.paint(canvas, Offset(right - text.width, top));
   }
@@ -4341,117 +5981,178 @@ class _SimpleLinePainter extends CustomPainter {
 // ------------------------------------------------------
 class _RadarPainter extends CustomPainter {
   final Map<String, int> data;
-  _RadarPainter(this.data);
+  final Color color;
+
+  _RadarPainter(this.data, {required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.shortestSide / 2.5;
-    final count = data.length;
-    if (count == 0) return;
-
-    final paintLine =
-    Paint()..color = Colors.blueAccent..strokeWidth = 2..style = PaintingStyle.stroke;
-    final paintFill =
-    Paint()..color = Colors.blueAccent.withOpacity(0.3)..style = PaintingStyle.fill;
-    final keys = data.keys.toList();
-    final maxVal = data.values.reduce(math.max).toDouble();
-
-    final path = Path();
-    for (int i = 0; i < count; i++) {
-      final angle = (math.pi * 2 / count) * i - math.pi / 2;
-      final value = data[keys[i]]!.toDouble();
-      final r = radius * (value / maxVal);
-      final x = center.dx + r * math.cos(angle);
-      final y = center.dy + r * math.sin(angle);
-      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
-    }
-    path.close();
-    canvas.drawPath(path, paintFill);
-    canvas.drawPath(path, paintLine);
-
-    // labels
-    final textPainter = TextPainter(textDirection: TextDirection.ltr);
-    for (int i = 0; i < count; i++) {      final angle = (math.pi * 2 / count) * i - math.pi / 2;
-    final label = keys[i];
-    final tp = TextPainter(
-      text: TextSpan(
-          text: label,
-          style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      textDirection: TextDirection.ltr,
-    )..layout(maxWidth: 80);
-
-    final lx = center.dx + (radius + 16) * math.cos(angle) - tp.width / 2;
-    final ly = center.dy + (radius + 16) * math.sin(angle) - tp.height / 2;
-    tp.paint(canvas, Offset(lx, ly));
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _RadarPainter oldDelegate) =>
-      oldDelegate.data != data;
-}
-
-
-class _WeightChartPainter extends CustomPainter {
-  final List<WeightPoint> points;
-  _WeightChartPainter(this.points);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
+    final paintGrid = Paint()
+      ..color = Colors.grey.withOpacity(0.3)
+      ..strokeWidth = 1;
 
     final paintLine = Paint()
-      ..color = Colors.blueAccent
+      ..color = color
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
 
-    final paintAxis = Paint()
-      ..color = Colors.grey
-      ..strokeWidth = 1;
+    final paintFill = Paint()
+      ..shader = LinearGradient(
+        colors: [
+          color.withOpacity(0.25),
+          Colors.transparent,
+        ],
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
 
-    final pad = 10.0;
-    final left = pad, right = size.width - pad, top = pad, bottom = size.height - pad;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.38;
+    final angles = data.length;
+    final angleStep = (2 * math.pi) / angles;
 
-    // Axes
-    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), paintAxis);
-    canvas.drawLine(Offset(left, top), Offset(left, bottom), paintAxis);
-
-    // Map time -> x, weight -> y
-    final minT = points.first.at.millisecondsSinceEpoch.toDouble();
-    final maxT = points.last.at.millisecondsSinceEpoch.toDouble();
-    final minKg = points.map((p) => p.kg).reduce((a, b) => a < b ? a : b);
-    final maxKg = points.map((p) => p.kg).reduce((a, b) => a > b ? a : b);
-
-    final spanT = (maxT - minT).clamp(1, double.infinity);
-    final spanKg = (maxKg - minKg).abs() < 1e-6 ? 1.0 : (maxKg - minKg);
-
-    double xFor(DateTime t) => left + (right - left) * ((t.millisecondsSinceEpoch - minT) / spanT);
-    double yFor(double kg) => bottom - (bottom - top) * ((kg - minKg) / spanKg);
+    final maxValue = data.values.isEmpty
+        ? 1
+        : data.values.reduce((a, b) => a > b ? a : b).toDouble().clamp(1, double.infinity);
 
     final path = Path();
-    for (int i = 0; i < points.length; i++) {
-      final p = points[i];
-      final x = xFor(p.at);
-      final y = yFor(p.kg);
+
+    for (int i = 0; i < angles; i++) {
+      final key = data.keys.elementAt(i);
+      final value = data[key]!.toDouble() / maxValue;
+      final angle = -math.pi / 2 + angleStep * i;
+      final x = center.dx + radius * value * math.cos(angle);
+      final y = center.dy + radius * value * math.sin(angle);
       if (i == 0) {
         path.moveTo(x, y);
       } else {
         path.lineTo(x, y);
       }
-    }
-    canvas.drawPath(path, paintLine);
 
-    // Dots
-    final dot = Paint()..color = Colors.blueAccent;
-    for (final p in points) {
-      canvas.drawCircle(Offset(xFor(p.at), yFor(p.kg)), 2.5, dot);
+      // Draw labels
+      final tp = TextPainter(
+        text: TextSpan(
+          text: key,
+          style: const TextStyle(fontSize: 11, color: Colors.grey),
+        ),
+        textDirection: ui.TextDirection.ltr,
+      );
+      tp.layout();
+      final labelOffset = Offset(
+        center.dx + (radius + 14) * math.cos(angle) - tp.width / 2,
+        center.dy + (radius + 14) * math.sin(angle) - tp.height / 2,
+      );
+      tp.paint(canvas, labelOffset);
+
+      // Draw grid lines from center
+      final gridX = center.dx + radius * math.cos(angle);
+      final gridY = center.dy + radius * math.sin(angle);
+      canvas.drawLine(center, Offset(gridX, gridY), paintGrid);
     }
+
+    path.close();
+
+    // Fill + outline
+    canvas.drawPath(path, paintFill);
+    canvas.drawPath(path, paintLine);
   }
 
   @override
-  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) => oldDelegate.points != points;
+  bool shouldRepaint(covariant _RadarPainter oldDelegate) =>
+      oldDelegate.data != data || oldDelegate.color != color;
 }
+
+
+
+class _WeightChartPainter extends CustomPainter {
+  final List<double> yVals;
+  final String label;
+  _WeightChartPainter(this.yVals, {required this.label});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (yVals.isEmpty) return;
+
+    final pad = 40.0;
+    final left = pad, right = size.width - 10, top = 20.0, bottom = size.height - pad;
+
+    // Axes
+    final axisPaint = Paint()
+      ..color = Colors.grey.withOpacity(0.6)
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(left, bottom), Offset(right, bottom), axisPaint);
+    canvas.drawLine(Offset(left, top), Offset(left, bottom), axisPaint);
+
+    // Compute Y-axis range
+    final minY = yVals.reduce((a, b) => a < b ? a : b);
+    final maxY = yVals.reduce((a, b) => a > b ? a : b);
+    final spanY = (maxY - minY).abs() < 1e-6 ? 1.0 : (maxY - minY);
+
+    double xFor(int i) => left + (right - left) * (i / (yVals.length - 1));
+    double yFor(double v) =>
+        bottom - (bottom - top) * ((v - minY) / spanY);
+
+    // Draw line
+    final linePaint = Paint()
+      ..color = Colors.blueAccent
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    for (int i = 0; i < yVals.length; i++) {
+      final x = xFor(i);
+      final y = yFor(yVals[i]);
+      if (i == 0) path.moveTo(x, y);
+      else path.lineTo(x, y);
+    }
+    canvas.drawPath(path, linePaint);
+
+    // Dots
+    final dotPaint = Paint()..color = Colors.blueAccent;
+    for (int i = 0; i < yVals.length; i++) {
+      canvas.drawCircle(Offset(xFor(i), yFor(yVals[i])), 4, dotPaint);
+    }
+
+    // Y-axis labels
+    final tp = TextPainter(textDirection: ui.TextDirection.ltr);
+    const steps = 4;
+    for (int i = 0; i <= steps; i++) {
+      final value = minY + (spanY / steps) * i;
+      final y = yFor(value);
+      tp.text = TextSpan(
+        text: '${value.toStringAsFixed(0)} $label',
+        style: const TextStyle(color: Colors.grey, fontSize: 10),
+      );
+      tp.layout();
+      tp.paint(canvas, Offset(left - tp.width - 4, y - tp.height / 2));
+    }
+
+    // X-axis labels (indices)
+    final tpStart = TextPainter(
+      text: TextSpan(
+          text: '1',
+          style: const TextStyle(color: Colors.grey, fontSize: 10)),
+      textDirection: ui.TextDirection.ltr,
+    );
+    tpStart.layout();
+    tpStart.paint(canvas, Offset(left, bottom + 4));
+
+    final tpEnd = TextPainter(
+      text: TextSpan(
+          text: '${yVals.length}',
+          style: const TextStyle(color: Colors.grey, fontSize: 10)),
+      textDirection: ui.TextDirection.ltr,
+    );
+    tpEnd.layout();
+    tpEnd.paint(canvas, Offset(right - tpEnd.width, bottom + 4));
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeightChartPainter oldDelegate) =>
+      oldDelegate.yVals != yVals || oldDelegate.label != label;
+}
+
 
 class _SessionBest {
   final double? maxWeight;
@@ -4797,12 +6498,12 @@ class WorkoutSummaryPage extends StatelessWidget {
   }
 }
 
-  Widget _chip(String text, IconData icon, bool highlight) {
-    return Chip(
-      avatar: Icon(icon, size: 18),
-      label: Text(highlight ? '$text • PR!' : text),
-    );
-  }
+Widget _chip(String text, IconData icon, bool highlight) {
+  return Chip(
+    avatar: Icon(icon, size: 18),
+    label: Text(highlight ? '$text • PR!' : text),
+  );
+}
 
 
 class AppTheme {
