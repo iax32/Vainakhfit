@@ -5058,6 +5058,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
         // ---------------- Yearly / All time stats ----------------
         // ----- This Year -----
+        const Text('This Year', style: TextStyle(fontWeight: FontWeight.bold)),
         Card(
           child: ListTile(
             title: const Text('Workouts'),
