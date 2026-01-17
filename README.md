@@ -6,7 +6,7 @@ A minimal workout tracker focused on speed, simplicity, and offline-first use.
 
 ---
 
-## ✨ Features
+##  Features
 
 - Fast logging for workouts and sets
 - Simple, distraction-free UI
@@ -15,18 +15,18 @@ A minimal workout tracker focused on speed, simplicity, and offline-first use.
 
 ---
 
-## 📦 Get the App
+##  Get the App
 
 Grab the latest builds from **Releases**:
 
 - **Android:** `arm64-v8a`, `armeabi-v7a`, `x86_64` APKs  
 - **iOS:** `.ipa` (for sideloading)
 
-👉 Head to the **[Releases](../../releases)** page and download the latest version for your device.
+Head to the **[Releases](../../releases)** page and download the latest version for your device.
 
 ---
 
-## 🛠️ Build from Source
+## Build from Source
 
 Requirements:
 - [Flutter](https://flutter.dev) (stable channel)
